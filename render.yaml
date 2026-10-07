@@ -1,0 +1,49 @@
+# Contract: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: disputeflow-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /ready
+    preDeployCommand: alembic upgrade head
+    dockerCommand: disputeflow serve --host 0.0.0.0
+    envVars:
+      - fromGroup: disputeflow-shared
+      - key: DISPUTEFLOW_DATABASE_URL
+        fromDatabase:
+          name: disputeflow-db
+          property: connectionString
+  - type: worker
+    name: disputeflow-worker
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerCommand: disputeflow worker
+    envVars:
+      - fromGroup: disputeflow-shared
+      - key: DISPUTEFLOW_DATABASE_URL
+        fromDatabase:
+          name: disputeflow-db
+          property: connectionString
+databases:
+  - name: disputeflow-db
+    databaseName: disputeflow
+    user: disputeflow
+    plan: basic-256mb
+    region: frankfurt
+envVarGroups:
+  - name: disputeflow-shared
+    envVars:
+      - key: DISPUTEFLOW_ENVIRONMENT
+        value: production
+      - key: DISPUTEFLOW_API_KEY
+        generateValue: true
+      - key: DISPUTEFLOW_REVIEWER_API_KEY
+        generateValue: true
+      - key: DISPUTEFLOW_EXECUTION_MODE
+        value: dry_run
+      - key: DISPUTEFLOW_LLM_PROVIDER
+        value: demo
+      - key: DISPUTEFLOW_POLICY_DIR
+        value: /app/policies

@@ -1,0 +1,36 @@
+{
+  "external_id": "DEMO-NONMONOTONIC-002",
+  "reason": "not_received",
+  "amount": "49.90",
+  "currency": "USD",
+  "summary": "Synthetic fixture: invalid tracking retracts the earlier submission recommendation; accepting the claim is now supported.",
+  "evidence": [
+    {
+      "id": "buyer_statement",
+      "kind": "statement",
+      "content": "Synthetic reviewed buyer statement. FACT:claim_nonreceipt",
+      "verified": true,
+      "source": "synthetic_fixture"
+    },
+    {
+      "id": "carrier_record",
+      "kind": "tracking",
+      "content": "Synthetic reviewed carrier delivery record. FACT:delivery_verified",
+      "verified": true,
+      "source": "synthetic_fixture"
+    },
+    {
+      "id": "carrier_correction",
+      "kind": "tracking",
+      "content": "Synthetic verified carrier correction. FACT:tracking_invalid",
+      "verified": true,
+      "source": "synthetic_fixture"
+    }
+  ],
+  "policy_id": "demo_policy",
+  "auto_execute": false,
+  "allowed_actions": [
+    "accept_claim",
+    "provide_evidence"
+  ]
+}

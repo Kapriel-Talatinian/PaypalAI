@@ -1,0 +1,142 @@
+{
+  "id": "demo_policy",
+  "title": "Synthetic DisputeFlow demonstration policy (not PayPal terms)",
+  "version": "2026-10-demo",
+  "source_url": "urn:disputeflow:synthetic-demo:2026-10",
+  "synthetic": true,
+  "sections": [
+    {
+      "id": "demo_scope",
+      "title": "Scope and synthetic policy disclosure",
+      "text": "This document is a synthetic DisputeFlow demonstration policy. It is not a PayPal agreement, seller protection policy, buyer protection policy, or legal interpretation. Its invented rules demonstrate auditable non-monotonic reasoning only.",
+      "children": [],
+      "keywords": [
+        "always"
+      ]
+    },
+    {
+      "id": "nonreceipt",
+      "title": "Nonreceipt demonstration",
+      "text": "",
+      "keywords": [
+        "claim_nonreceipt",
+        "delivery_verified",
+        "tracking_invalid",
+        "not_received",
+        "nonreceipt"
+      ],
+      "children": [
+        {
+          "id": "buyer_nonreceipt",
+          "title": "Buyer nonreceipt recommendation",
+          "text": "In this synthetic demo, a verified claim_nonreceipt fact normally supports decision_accept_claim. A stronger applicable contrary rule can defeat this recommendation.",
+          "children": [],
+          "keywords": [
+            "claim_nonreceipt",
+            "not_received",
+            "nonreceipt"
+          ]
+        },
+        {
+          "id": "seller_delivery",
+          "title": "Verified delivery exception",
+          "text": "In this synthetic demo, a verified delivery_verified fact normally supports the explicit opposite of decision_accept_claim, unless tracking_invalid is established.",
+          "children": [],
+          "keywords": [
+            "delivery_verified",
+            "claim_nonreceipt",
+            "not_received",
+            "nonreceipt"
+          ]
+        },
+        {
+          "id": "invalid_tracking",
+          "title": "Invalid tracking defeater",
+          "text": "In this synthetic demo, established tracking_invalid is a defeater protecting decision_accept_claim from contrary delivery-based rules. This exception alone does not establish decision_accept_claim.",
+          "children": [],
+          "keywords": [
+            "tracking_invalid",
+            "claim_nonreceipt",
+            "not_received",
+            "nonreceipt"
+          ]
+        },
+        {
+          "id": "priorities",
+          "title": "Applicable nonreceipt rule priorities",
+          "text": "",
+          "keywords": [
+            "claim_nonreceipt",
+            "delivery_verified",
+            "tracking_invalid",
+            "not_received",
+            "nonreceipt"
+          ],
+          "children": [
+            {
+              "id": "delivery_priority",
+              "title": "Delivery rule overrides nonreceipt rule",
+              "text": "In this synthetic demo, seller_delivery has higher priority than buyer_nonreceipt. This priority only matters when both rules are applicable and their conclusions conflict.",
+              "children": [],
+              "keywords": [
+                "always"
+              ]
+            },
+            {
+              "id": "invalid_priority",
+              "title": "Invalid tracking defeater overrides delivery rule",
+              "text": "In this synthetic demo, the invalid_tracking defeater has higher priority than seller_delivery.",
+              "children": [],
+              "keywords": [
+                "always"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quality",
+      "title": "Competing quality evidence demonstration",
+      "text": "",
+      "keywords": [
+        "quality_complaint",
+        "seller_inspection",
+        "not_as_described"
+      ],
+      "children": [
+        {
+          "id": "buyer_quality",
+          "title": "Buyer quality complaint",
+          "text": "In this synthetic demo, a verified quality_complaint fact normally supports decision_accept_claim.",
+          "children": [],
+          "keywords": [
+            "quality_complaint",
+            "seller_inspection",
+            "not_as_described"
+          ]
+        },
+        {
+          "id": "seller_quality",
+          "title": "Competing seller inspection",
+          "text": "In this synthetic demo, a verified seller_inspection fact normally supports the explicit opposite of decision_accept_claim. No priority between buyer_quality and seller_quality is specified; competing extensions require governance.",
+          "children": [],
+          "keywords": [
+            "quality_complaint",
+            "seller_inspection",
+            "not_as_described"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "contest_action",
+      "title": "Merchant evidence submission mapping",
+      "text": "In this synthetic demo, the explicit opposite of decision_accept_claim strictly implies decision_provide_evidence. The merchant can submit evidence to PayPal; this does not adjudicate the dispute or deny a buyer claim.",
+      "children": [],
+      "keywords": [
+        "always"
+      ]
+    }
+  ]
+}

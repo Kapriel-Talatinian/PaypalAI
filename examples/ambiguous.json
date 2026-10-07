@@ -1,0 +1,29 @@
+{
+  "external_id": "DEMO-AMBIGUOUS-001",
+  "reason": "not_as_described",
+  "amount": "49.90",
+  "currency": "USD",
+  "summary": "Synthetic fixture: competing quality statements without a policy priority produce multiple extensions.",
+  "evidence": [
+    {
+      "id": "buyer_quality_report",
+      "kind": "statement",
+      "content": "Synthetic reviewed buyer quality report. FACT:quality_complaint",
+      "verified": true,
+      "source": "synthetic_fixture"
+    },
+    {
+      "id": "seller_inspection_report",
+      "kind": "statement",
+      "content": "Synthetic reviewed seller inspection. FACT:seller_inspection",
+      "verified": true,
+      "source": "synthetic_fixture"
+    }
+  ],
+  "policy_id": "demo_policy",
+  "auto_execute": false,
+  "allowed_actions": [
+    "accept_claim",
+    "provide_evidence"
+  ]
+}

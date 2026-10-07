@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling>=1.26,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "disputeflow"
+version = "0.1.0"
+description = "Auditable neuro-symbolic dispute resolution with PayPal and ASP"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+  "fastapi>=0.115,<1", "uvicorn[standard]>=0.30,<1",
+  "pydantic>=2.10,<3", "pydantic-settings>=2.6,<3",
+  "sqlalchemy>=2.0,<3", "alembic>=1.14,<2",
+  "httpx>=0.28,<1", "clingo==5.8.0", "psycopg[binary]>=3.2,<4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1"]
+
+[project.scripts]
+disputeflow = "disputeflow.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/disputeflow"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]

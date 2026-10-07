@@ -1,0 +1,11 @@
+{
+  "evidence": [
+    {
+      "id": "carrier_correction",
+      "kind": "tracking",
+      "content": "Synthetic verified carrier correction: previous tracking was invalid. FACT:tracking_invalid",
+      "verified": true,
+      "source": "synthetic_fixture"
+    }
+  ]
+}

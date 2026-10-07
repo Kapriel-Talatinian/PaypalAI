@@ -1,0 +1,342 @@
+{
+  "status": "passed",
+  "verified_at": "2026-10-07T18:22:14.955687+00:00",
+  "scope": "Synthetic policy mechanics through actual FastAPI routes, durable worker, and isolated clingo solver",
+  "execution_environment": {
+    "database": "isolated temporary SQLite, deleted after verification",
+    "extractor": "DemoExtractor",
+    "solver": "clingo",
+    "solver_version": "5.8.0",
+    "execution_mode": "dry_run",
+    "outbound_http_attempts": 0,
+    "network_http_transports_blocked": true,
+    "environment_configuration_ignored": true,
+    "frontend_fixture_replay_used": false,
+    "solver_mocked": false
+  },
+  "scenarios": {
+    "verified_delivery": {
+      "run_id": "e32984cb-fa16-4cbe-a3ca-e04ca9103f82",
+      "case_id": "2a6b8648-f313-4816-bce1-ab36145fee37",
+      "case_version": 1,
+      "status": "completed",
+      "solver_status": "unique",
+      "stable_model_count": 1,
+      "model_actions": [
+        [
+          "provide_evidence"
+        ]
+      ],
+      "recommended_action": "provide_evidence",
+      "requires_human": true,
+      "governance_reasons": [
+        "Extraction warnings require human review",
+        "Synthetic policy is limited to demo and dry-run execution"
+      ],
+      "fact_literals": [
+        "claim_nonreceipt",
+        "delivery_verified"
+      ],
+      "analysis_attempts": 1,
+      "program_sha256": "73891216db0e859ea6515727ef8c71ca6315ce335a07e6b87c66df5fc733ac84",
+      "program_hash_verified": true,
+      "grounding_verified": true,
+      "proof_nodes": 31,
+      "proof_edges": 41,
+      "audit": {
+        "verified": true,
+        "independently_verified": true,
+        "tampering_detected": true,
+        "event_count": 7,
+        "event_kinds": [
+          "case_created",
+          "analysis_queued",
+          "analysis_started",
+          "analysis_completed",
+          "human_review",
+          "execution_intent",
+          "execution_succeeded"
+        ],
+        "chain_head": "94e50c78298b7ace2f159aec6d406e2f0709f695c00d583d19857bce4dc434ef"
+      }
+    },
+    "nonmonotonic_tracking_correction": {
+      "run_id": "70b9ed5d-21ba-4306-b55d-401809b1d5fb",
+      "case_id": "2a6b8648-f313-4816-bce1-ab36145fee37",
+      "case_version": 2,
+      "status": "completed",
+      "solver_status": "unique",
+      "stable_model_count": 1,
+      "model_actions": [
+        [
+          "accept_claim"
+        ]
+      ],
+      "recommended_action": "accept_claim",
+      "requires_human": true,
+      "governance_reasons": [
+        "Extraction warnings require human review",
+        "Synthetic policy is limited to demo and dry-run execution"
+      ],
+      "fact_literals": [
+        "claim_nonreceipt",
+        "delivery_verified",
+        "tracking_invalid"
+      ],
+      "analysis_attempts": 1,
+      "program_sha256": "1bd7e21560b81966ba266cbbfa70ec4a0c69dd1c12863bf6debfa86e9800314a",
+      "program_hash_verified": true,
+      "grounding_verified": true,
+      "proof_nodes": 32,
+      "proof_edges": 40,
+      "previous_action": "provide_evidence",
+      "stale_review": {
+        "http_status": 409,
+        "detail": "Run is stale; analyze the current evidence version"
+      },
+      "stale_execution": {
+        "http_status": 409,
+        "detail": "Run is stale; analyze the current evidence version"
+      },
+      "previous_authorization_invalidated": true,
+      "audit": {
+        "verified": true,
+        "independently_verified": true,
+        "tampering_detected": true,
+        "event_count": 11,
+        "event_kinds": [
+          "case_created",
+          "analysis_queued",
+          "analysis_started",
+          "analysis_completed",
+          "human_review",
+          "execution_intent",
+          "execution_succeeded",
+          "evidence_updated",
+          "analysis_queued",
+          "analysis_started",
+          "analysis_completed"
+        ],
+        "chain_head": "4eef54f89e4af4517a9782fee8c2bcc970e25e94da0c93f61709850b0ff5490f"
+      }
+    },
+    "legitimate_item_mismatch": {
+      "run_id": "e8a6e8ca-ae3d-46e7-852c-ea926085debc",
+      "case_id": "3dbf8173-a7d1-4975-98d4-5a8ae9d6a6e1",
+      "case_version": 1,
+      "status": "completed",
+      "solver_status": "unique",
+      "stable_model_count": 1,
+      "model_actions": [
+        [
+          "accept_claim"
+        ]
+      ],
+      "recommended_action": "accept_claim",
+      "requires_human": true,
+      "governance_reasons": [
+        "Extraction warnings require human review",
+        "Synthetic policy is limited to demo and dry-run execution"
+      ],
+      "fact_literals": [
+        "quality_complaint"
+      ],
+      "analysis_attempts": 1,
+      "program_sha256": "6c369a4906960a49f8b9f930ee9d95de1cd2a22551ac5247fdbdeb58a8cfe34a",
+      "program_hash_verified": true,
+      "grounding_verified": true,
+      "proof_nodes": 19,
+      "proof_edges": 18,
+      "audit": {
+        "verified": true,
+        "independently_verified": true,
+        "tampering_detected": true,
+        "event_count": 4,
+        "event_kinds": [
+          "case_created",
+          "analysis_queued",
+          "analysis_started",
+          "analysis_completed"
+        ],
+        "chain_head": "d10e51780b96a5a1cc7fa9fe9e9ca40a1db898fb91deb3a42f7aba3fde45a1d9"
+      }
+    },
+    "competing_rules": {
+      "run_id": "cd2f85f4-b448-4f5e-b58c-0cc3c1431afd",
+      "case_id": "deee1a47-9aea-427c-8324-0d1b28047401",
+      "case_version": 1,
+      "status": "completed",
+      "solver_status": "multiple",
+      "stable_model_count": 2,
+      "model_actions": [
+        [
+          "provide_evidence"
+        ],
+        [
+          "accept_claim"
+        ]
+      ],
+      "recommended_action": null,
+      "requires_human": true,
+      "governance_reasons": [
+        "Solver status 'multiple' requires human review",
+        "No unambiguous executable merchant action",
+        "Operational confidence is below the automatic execution threshold",
+        "Extraction warnings require human review",
+        "Synthetic policy is limited to demo and dry-run execution"
+      ],
+      "fact_literals": [
+        "quality_complaint",
+        "seller_inspection"
+      ],
+      "analysis_attempts": 1,
+      "program_sha256": "24576baa32822c742950ba16e177a65c0550de913d916199a2768a6483104cf9",
+      "program_hash_verified": true,
+      "grounding_verified": true,
+      "proof_nodes": 26,
+      "proof_edges": 40,
+      "execution_gate": {
+        "http_status": 409,
+        "detail": "A reviewer must approve this decision before execution"
+      },
+      "audit": {
+        "verified": true,
+        "independently_verified": true,
+        "tampering_detected": true,
+        "event_count": 4,
+        "event_kinds": [
+          "case_created",
+          "analysis_queued",
+          "analysis_started",
+          "analysis_completed"
+        ],
+        "chain_head": "415452ae242135a7d0a962146612345f52baefda69f973a682a8725e6e3bc4c8"
+      }
+    },
+    "contradictory_verified_facts": {
+      "run_id": "0b59157a-6fd6-4a13-bbdd-915eb8977e47",
+      "case_id": "6bf7052a-1833-41da-b526-447fef83aca1",
+      "case_version": 1,
+      "status": "completed",
+      "solver_status": "inconsistent",
+      "stable_model_count": 0,
+      "model_actions": [],
+      "recommended_action": null,
+      "requires_human": true,
+      "governance_reasons": [
+        "Solver status 'inconsistent' requires human review",
+        "No unambiguous executable merchant action",
+        "Operational confidence is below the automatic execution threshold",
+        "Extraction warnings require human review",
+        "Synthetic policy is limited to demo and dry-run execution"
+      ],
+      "fact_literals": [
+        "-delivery_verified",
+        "claim_nonreceipt",
+        "delivery_verified"
+      ],
+      "analysis_attempts": 3,
+      "program_sha256": "220500f6d17cca240efe0ab54ea227472da6b240841f340ae7a8e1c678c235e9",
+      "program_hash_verified": true,
+      "grounding_verified": true,
+      "proof_nodes": 29,
+      "proof_edges": 29,
+      "verified_facts_retained_in_all_attempts": true,
+      "execution_gate": {
+        "http_status": 409,
+        "detail": "A reviewer must approve this decision before execution"
+      },
+      "audit": {
+        "verified": true,
+        "independently_verified": true,
+        "tampering_detected": true,
+        "event_count": 4,
+        "event_kinds": [
+          "case_created",
+          "analysis_queued",
+          "analysis_started",
+          "analysis_completed"
+        ],
+        "chain_head": "5b92db5e1832731f3b111e3c7dd69d92d9da963a6f34c4e7643742ad9c91179a"
+      }
+    },
+    "unverified_tracking": {
+      "run_id": "785165fa-3ca6-410f-ad96-eef440817862",
+      "case_id": "2139dd45-3729-4169-be53-0175254ed76a",
+      "case_version": 1,
+      "status": "completed",
+      "solver_status": "unique",
+      "stable_model_count": 1,
+      "model_actions": [
+        [
+          "accept_claim"
+        ]
+      ],
+      "recommended_action": "accept_claim",
+      "requires_human": true,
+      "governance_reasons": [
+        "Extraction warnings require human review",
+        "Synthetic policy is limited to demo and dry-run execution"
+      ],
+      "fact_literals": [
+        "claim_nonreceipt"
+      ],
+      "analysis_attempts": 1,
+      "program_sha256": "bc0dff2a8820b90ee64685ed474a58942bd8ad121fe563c1d7c39287e102b25f",
+      "program_hash_verified": true,
+      "grounding_verified": true,
+      "proof_nodes": 27,
+      "proof_edges": 30,
+      "unverified_tracking_promoted": false,
+      "audit": {
+        "verified": true,
+        "independently_verified": true,
+        "tampering_detected": true,
+        "event_count": 4,
+        "event_kinds": [
+          "case_created",
+          "analysis_queued",
+          "analysis_started",
+          "analysis_completed"
+        ],
+        "chain_head": "f7851d8cd8c263f045ba395da4ef3550abc0508bbde72887e2c5e39381823b3e"
+      }
+    }
+  },
+  "review_and_execution": {
+    "execution_without_review": {
+      "http_status": 409,
+      "detail": "A reviewer must approve this decision before execution"
+    },
+    "service_key_cannot_review": 403,
+    "reviewed_action": "provide_evidence",
+    "execution_id": "d219cadc-a2d8-4254-9bd5-cec6c1730d5c",
+    "execution_mode": "dry_run",
+    "execution_status": "succeeded",
+    "explicit_payload_preserved": true,
+    "idempotent_retry_execution_id": "d219cadc-a2d8-4254-9bd5-cec6c1730d5c",
+    "journal_count_after_retry": 1,
+    "changed_payload_same_key_http_status": 409,
+    "case_status_after_dry_run": "reviewed",
+    "external_payment_or_message_sent": false
+  },
+  "actual_analysis_runs": 6,
+  "actual_clingo_solver_attempts": 8,
+  "isolated_database_metrics": {
+    "cases": {
+      "review_required": 5
+    },
+    "runs": {
+      "completed": 6
+    },
+    "executions": {
+      "succeeded": 1
+    },
+    "webhooks": {}
+  },
+  "limitations": [
+    "The bundled policy and FACT markers are synthetic; these cases are not real PayPal legal determinations.",
+    "OpenAI extraction, PayPal Sandbox/live requests, and real webhook delivery are not exercised.",
+    "A merchant evidence response does not establish buyer fraud, win probability, recovered revenue, or a resolved dispute."
+  ]
+}

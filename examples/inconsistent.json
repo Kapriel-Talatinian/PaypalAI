@@ -1,0 +1,36 @@
+{
+  "external_id": "DEMO-INCONSISTENT-001",
+  "reason": "not_received",
+  "amount": "49.90",
+  "currency": "USD",
+  "summary": "Synthetic fixture: contradictory verified delivery records. A correction must retain both assertions and require human review.",
+  "evidence": [
+    {
+      "id": "buyer_statement",
+      "kind": "statement",
+      "content": "Synthetic reviewed buyer statement. FACT:claim_nonreceipt",
+      "verified": true,
+      "source": "synthetic_fixture"
+    },
+    {
+      "id": "carrier_positive",
+      "kind": "tracking",
+      "content": "Synthetic verified positive record. FACT:delivery_verified",
+      "verified": true,
+      "source": "synthetic_fixture"
+    },
+    {
+      "id": "carrier_negative",
+      "kind": "tracking",
+      "content": "Synthetic verified contradictory record. FACT:-delivery_verified",
+      "verified": true,
+      "source": "synthetic_fixture"
+    }
+  ],
+  "policy_id": "demo_policy",
+  "auto_execute": false,
+  "allowed_actions": [
+    "accept_claim",
+    "provide_evidence"
+  ]
+}

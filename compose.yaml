@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: disputeflow
+      POSTGRES_USER: disputeflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-compose-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U disputeflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment: &backend_env
+      DISPUTEFLOW_ENVIRONMENT: ${DISPUTEFLOW_ENVIRONMENT:-development}
+      DISPUTEFLOW_DATABASE_URL: postgresql+psycopg://disputeflow:${POSTGRES_PASSWORD:-local-compose-password}@db/disputeflow
+      DISPUTEFLOW_API_KEY: ${DISPUTEFLOW_API_KEY:-local-development-key-change-me}
+      DISPUTEFLOW_REVIEWER_API_KEY: ${DISPUTEFLOW_REVIEWER_API_KEY:-local-compose-reviewer-key-change-me}
+      DISPUTEFLOW_POLICY_DIR: ${DISPUTEFLOW_POLICY_DIR:-/app/policies}
+      DISPUTEFLOW_LLM_PROVIDER: ${DISPUTEFLOW_LLM_PROVIDER:-demo}
+      DISPUTEFLOW_OPENAI_API_KEY: ${DISPUTEFLOW_OPENAI_API_KEY:-}
+      DISPUTEFLOW_OPENAI_MODEL: ${DISPUTEFLOW_OPENAI_MODEL:-gpt-4.1-mini}
+      DISPUTEFLOW_OPENAI_BASE_URL: ${DISPUTEFLOW_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      DISPUTEFLOW_EXECUTION_MODE: ${DISPUTEFLOW_EXECUTION_MODE:-dry_run}
+      DISPUTEFLOW_PAYPAL_ENVIRONMENT: ${DISPUTEFLOW_PAYPAL_ENVIRONMENT:-sandbox}
+      DISPUTEFLOW_PAYPAL_CLIENT_ID: ${DISPUTEFLOW_PAYPAL_CLIENT_ID:-}
+      DISPUTEFLOW_PAYPAL_CLIENT_SECRET: ${DISPUTEFLOW_PAYPAL_CLIENT_SECRET:-}
+      DISPUTEFLOW_PAYPAL_WEBHOOK_ID: ${DISPUTEFLOW_PAYPAL_WEBHOOK_ID:-}
+      DISPUTEFLOW_WEBHOOK_POLICY_ID: ${DISPUTEFLOW_WEBHOOK_POLICY_ID:-demo_policy}
+      DISPUTEFLOW_AUTO_CONFIDENCE_THRESHOLD: ${DISPUTEFLOW_AUTO_CONFIDENCE_THRESHOLD:-0.95}
+      DISPUTEFLOW_AUTO_MAX_AMOUNT: ${DISPUTEFLOW_AUTO_MAX_AMOUNT:-100}
+      DISPUTEFLOW_AUTO_CURRENCY: ${DISPUTEFLOW_AUTO_CURRENCY:-USD}
+      DISPUTEFLOW_CORS_ORIGINS: ${DISPUTEFLOW_CORS_ORIGINS:-[]}
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build: .
+    ports: ["8000:8000"]
+    environment: *backend_env
+    volumes: ["./policies:/app/policies"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  worker:
+    build: .
+    command: ["disputeflow", "worker"]
+    environment: *backend_env
+    volumes: ["./policies:/app/policies"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  dashboard:
+    build: ./frontend
+    ports: ["8080:8080"]
+    depends_on:
+      api:
+        condition: service_started
+volumes:
+  postgres_data:

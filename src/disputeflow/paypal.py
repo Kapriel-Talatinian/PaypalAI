@@ -22,9 +22,30 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+from pydantic import ValidationError
 
 from .config import Settings
-from .domain import Action, CaseInput, Evidence
+from .domain import (
+    Action,
+    CaseInput,
+    Evidence,
+    PayPalDelivery,
+    PayPalDisputeMetadata,
+    PayPalDocument,
+    PayPalEvidence,
+    PayPalEvidenceRequirement,
+    PayPalItem,
+    PayPalLink,
+    PayPalMoney,
+    PayPalMoneyMovement,
+    PayPalParty,
+    PayPalRefundDetails,
+    PayPalResponseOptions,
+    PayPalReturnAddress,
+    PayPalSupportingInfo,
+    PayPalTracking,
+    PayPalTransaction,
+)
 
 Json = dict[str, Any]
 _BASE_URLS = {
@@ -369,36 +390,432 @@ def available_actions(snapshot: Mapping[str, Any]) -> list[Action]:
     ]
 
 
-def normalized_case(snapshot: Json, policy_id: str) -> CaseInput:
-    """Keep provider evidence unverified until a trusted process verifies it."""
-    amount = _object(
-        snapshot.get("dispute_amount"),
-        {"value", "currency_code"},
-        {"value", "currency_code"},
-        "dispute_amount",
+class _SnapshotNormalizer:
+    """Parse known optional fields while leaving unknown provider data in the raw snapshot."""
+
+    def __init__(self) -> None:
+        self.warnings: list[str] = []
+
+    def invalid(self, path: str) -> None:
+        self.warnings.append(f"Ignored malformed PayPal field: {path}")
+
+    def obj(self, value: Any, path: str) -> Json:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            self.invalid(path)
+            return {}
+        return value
+
+    def records(self, value: Any, path: str) -> list[tuple[Json, str]]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            self.invalid(path)
+            return []
+        result = []
+        for index, item in enumerate(value):
+            item_path = f"{path}[{index}]"
+            if isinstance(item, dict):
+                result.append((item, item_path))
+            else:
+                self.invalid(item_path)
+        return result
+
+    def text(self, value: Any, path: str, maximum: int = 2000) -> str | None:
+        if value is None:
+            return None
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+            or len(value) > maximum
+            or "\x00" in value
+        ):
+            self.invalid(path)
+            return None
+        return value
+
+    def strings(self, value: Any, path: str) -> list[str]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            self.invalid(path)
+            return []
+        result = []
+        for index, item in enumerate(value):
+            parsed = self.text(item, f"{path}[{index}]", 255)
+            if parsed is not None and parsed not in result:
+                result.append(parsed)
+        return result
+
+    def date(self, value: Any, path: str) -> datetime | None:
+        if value is None:
+            return None
+        try:
+            if not isinstance(value, str) or not re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})", value
+            ):
+                raise ValueError
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                raise ValueError
+            return parsed
+        except ValueError:
+            self.invalid(path)
+            return None
+
+    def boolean(self, value: Any, path: str) -> bool | None:
+        if value is None or isinstance(value, bool):
+            return value
+        self.invalid(path)
+        return None
+
+    def money(self, value: Any, path: str) -> PayPalMoney | None:
+        if value is None:
+            return None
+        item = self.obj(value, path)
+        amount, currency = item.get("value"), item.get("currency_code")
+        if (
+            not isinstance(amount, str)
+            or len(amount) > 32
+            or not re.fullmatch(r"-?(?:[0-9]+(?:\.[0-9]{1,3})?|\.[0-9]{1,3})", amount)
+            or not isinstance(currency, str)
+            or not re.fullmatch(r"[A-Z]{3}", currency)
+        ):
+            self.invalid(path)
+            return None
+        places = (
+            0
+            if currency in {"JPY", "HUF", "TWD"}
+            else 3
+            if currency in {"BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND"}
+            else 2
+        )
+        if (len(amount.split(".")[1]) if "." in amount else 0) > places:
+            self.invalid(path)
+            return None
+        return PayPalMoney(value=Decimal(amount), currency_code=currency)
+
+    def url(self, value: Any, path: str) -> str | None:
+        text = self.text(value, path)
+        if text is None:
+            return None
+        try:
+            url = urlsplit(text)
+            if url.scheme != "https" or not url.hostname or url.username or url.password:
+                raise ValueError
+            _ = url.port
+        except ValueError:
+            self.invalid(path)
+            return None
+        return text
+
+    def texts(self, item: Json, path: str, names: tuple[str, ...]) -> Json:
+        return {name: self.text(item.get(name), f"{path}.{name}") for name in names}
+
+    def party(self, value: Any, path: str) -> PayPalParty | None:
+        item = self.obj(value, path)
+        return (
+            PayPalParty(**self.texts(item, path, ("name", "email", "merchant_id")))
+            if item
+            else None
+        )
+
+    def documents(self, value: Any, path: str) -> list[PayPalDocument]:
+        return [
+            PayPalDocument(
+                name=self.text(item.get("name"), f"{p}.name"),
+                url=self.url(item.get("url"), f"{p}.url"),
+            )
+            for item, p in self.records(value, path)
+        ]
+
+    def tracking(self, value: Any, path: str) -> list[PayPalTracking]:
+        return [
+            PayPalTracking(
+                **self.texts(item, p, ("carrier_name", "carrier_name_other", "tracking_number")),
+                tracking_url=self.url(item.get("tracking_url"), f"{p}.tracking_url"),
+            )
+            for item, p in self.records(value, path)
+        ]
+
+    def delivery(self, value: Any, path: str, item_id: str | None = None) -> PayPalDelivery | None:
+        item = self.obj(value, path)
+        if not item:
+            return None
+        returned = self.obj(item.get("return_details"), f"{path}.return_details")
+        return PayPalDelivery(
+            source_path=path,
+            item_id=item_id,
+            **self.texts(item, path, ("description", "product_received")),
+            product_received_time=self.date(
+                item.get("product_received_time"), f"{path}.product_received_time"
+            ),
+            expected_delivery_date=self.date(
+                item.get("expected_delivery_date"), f"{path}.expected_delivery_date"
+            ),
+            return_time=self.date(
+                returned.get("return_time"), f"{path}.return_details.return_time"
+            ),
+            return_mode=self.text(returned.get("mode"), f"{path}.return_details.mode"),
+            return_receipt=self.boolean(returned.get("receipt"), f"{path}.return_details.receipt"),
+            returned=self.boolean(returned.get("returned"), f"{path}.return_details.returned"),
+            return_confirmation_number=self.text(
+                returned.get("return_confirmation_number"),
+                f"{path}.return_details.return_confirmation_number",
+            ),
+        )
+
+
+def normalize_dispute_metadata(snapshot: Json) -> PayPalDisputeMetadata:
+    """Normalize the official Disputes v1 fields without treating source claims as verified facts.
+
+    ``evidences[].action_info`` advertises evidence requirements for an action,
+    including submitted evidence; it does not mean the requirement is outstanding.
+    A buyer deadline is never substituted for the merchant's response deadline.
+    """
+    n = _SnapshotNormalizer()
+    deliveries: list[PayPalDelivery] = []
+    transactions = []
+    for transaction, path in n.records(
+        snapshot.get("disputed_transactions"), "disputed_transactions"
+    ):
+        items = []
+        for item, item_path in n.records(transaction.get("items"), f"{path}.items"):
+            quantity = item.get("item_quantity")
+            if quantity is not None and (
+                not isinstance(quantity, str) or not re.fullmatch(r"[1-9][0-9]{0,9}", quantity)
+            ):
+                n.invalid(f"{item_path}.item_quantity")
+                quantity = None
+            record = PayPalItem(
+                **n.texts(
+                    item,
+                    item_path,
+                    (
+                        "item_id",
+                        "item_name",
+                        "item_description",
+                        "item_type",
+                        "reason",
+                        "partner_transaction_id",
+                        "notes",
+                    ),
+                ),
+                item_quantity=int(quantity) if quantity is not None else None,
+                dispute_amount=n.money(item.get("dispute_amount"), f"{item_path}.dispute_amount"),
+            )
+            items.append(record)
+            delivery = n.delivery(
+                item.get("product_details"), f"{item_path}.product_details", record.item_id
+            )
+            if delivery is not None:
+                deliveries.append(delivery)
+        transactions.append(
+            PayPalTransaction(
+                **n.texts(
+                    transaction,
+                    path,
+                    (
+                        "seller_transaction_id",
+                        "buyer_transaction_id",
+                        "reference_id",
+                        "transaction_status",
+                        "invoice_number",
+                        "custom",
+                    ),
+                ),
+                create_time=n.date(transaction.get("create_time"), f"{path}.create_time"),
+                gross_amount=n.money(transaction.get("gross_amount"), f"{path}.gross_amount"),
+                buyer=n.party(transaction.get("buyer"), f"{path}.buyer"),
+                seller=n.party(transaction.get("seller"), f"{path}.seller"),
+                items=items,
+            )
+        )
+    evidence, requirements, tracking, refund_ids = [], [], [], []
+    for item, path in n.records(snapshot.get("evidences"), "evidences"):
+        info = n.obj(item.get("evidence_info"), f"{path}.evidence_info")
+        action_info = n.obj(item.get("action_info"), f"{path}.action_info")
+        requirement = None
+        if action_info:
+            requirement = PayPalEvidenceRequirement(
+                evidence_type=n.text(item.get("evidence_type"), f"{path}.evidence_type"),
+                **n.texts(action_info, f"{path}.action_info", ("action", "response_option")),
+                mandatory=n.boolean(action_info.get("mandatory"), f"{path}.action_info.mandatory"),
+            )
+            requirements.append(requirement)
+        record = PayPalEvidence(
+            **n.texts(
+                item,
+                path,
+                (
+                    "evidence_type",
+                    "source",
+                    "notes",
+                    "item_id",
+                    "item_type",
+                    "dispute_life_cycle_stage",
+                ),
+            ),
+            date=n.date(item.get("date"), f"{path}.date"),
+            action_info=requirement,
+            tracking_info=n.tracking(
+                info.get("tracking_info"), f"{path}.evidence_info.tracking_info"
+            ),
+            refund_ids=n.strings(info.get("refund_ids"), f"{path}.evidence_info.refund_ids"),
+            documents=n.documents(item.get("documents"), f"{path}.documents"),
+        )
+        evidence.append(record)
+        tracking.extend(record.tracking_info)
+        refund_ids.extend(
+            refund_id for refund_id in record.refund_ids if refund_id not in refund_ids
+        )
+    extensions = n.obj(snapshot.get("extensions"), "extensions")
+    merchandise = n.obj(
+        extensions.get("merchandize_dispute_properties"),
+        "extensions.merchandize_dispute_properties",
     )
+    delivery = n.delivery(
+        merchandise.get("product_details"),
+        "extensions.merchandize_dispute_properties.product_details",
+    )
+    if delivery is not None:
+        deliveries.append(delivery)
+    address = n.obj(
+        merchandise.get("return_shipping_address"),
+        "extensions.merchandize_dispute_properties.return_shipping_address",
+    )
+    refund = n.obj(snapshot.get("refund_details"), "refund_details")
+    outcome = n.obj(snapshot.get("dispute_outcome"), "dispute_outcome")
+    response = n.obj(snapshot.get("allowed_response_options"), "allowed_response_options")
+    response_types = {}
+    for key, field in (
+        ("accept_claim", "accept_claim_types"),
+        ("make_offer", "offer_types"),
+        ("acknowledge_return_item", "acknowledgement_types"),
+    ):
+        options = n.obj(response.get(key), f"allowed_response_options.{key}")
+        response_types[field] = n.strings(
+            options.get(field), f"allowed_response_options.{key}.{field}"
+        )
+    links = []
+    for item, path in n.records(snapshot.get("links"), "links"):
+        href, rel = n.url(item.get("href"), f"{path}.href"), n.text(item.get("rel"), f"{path}.rel")
+        if href is not None and rel is not None:
+            links.append(
+                PayPalLink(href=href, rel=rel, method=n.text(item.get("method"), f"{path}.method"))
+            )
+    metadata = PayPalDisputeMetadata(
+        dispute_id=snapshot["dispute_id"],
+        reason=snapshot["reason"],
+        **n.texts(
+            snapshot,
+            "dispute",
+            ("status", "dispute_state", "dispute_life_cycle_stage", "dispute_channel"),
+        ),
+        **{
+            name: n.date(snapshot.get(name), name)
+            for name in (
+                "create_time",
+                "update_time",
+                "seller_response_due_date",
+                "buyer_response_due_date",
+            )
+        },
+        transactions=transactions,
+        existing_evidence=evidence,
+        requested_evidence=requirements,
+        supporting_info=[
+            PayPalSupportingInfo(
+                **n.texts(item, path, ("notes", "source", "dispute_life_cycle_stage")),
+                provided_time=n.date(item.get("provided_time"), f"{path}.provided_time"),
+                documents=n.documents(item.get("documents"), f"{path}.documents"),
+            )
+            for item, path in n.records(snapshot.get("supporting_info"), "supporting_info")
+        ],
+        tracking_info=tracking,
+        refund_ids=refund_ids,
+        delivery_details=deliveries,
+        return_shipping_address=PayPalReturnAddress(
+            **n.texts(address, "return_shipping_address", tuple(PayPalReturnAddress.model_fields))
+        )
+        if address
+        else None,
+        refund_details=PayPalRefundDetails(
+            allowed_refund_amount=n.money(
+                refund.get("allowed_refund_amount"), "refund_details.allowed_refund_amount"
+            ),
+            amount_refunded=n.money(
+                outcome.get("amount_refunded"), "dispute_outcome.amount_refunded"
+            ),
+            outcome_code=n.text(outcome.get("outcome_code"), "dispute_outcome.outcome_code"),
+        )
+        if refund or outcome
+        else None,
+        money_movements=[
+            PayPalMoneyMovement(
+                **n.texts(item, path, ("affected_party", "type", "reason")),
+                amount=n.money(item.get("amount"), f"{path}.amount"),
+                initiated_time=n.date(item.get("initiated_time"), f"{path}.initiated_time"),
+            )
+            for item, path in n.records(snapshot.get("money_movements"), "money_movements")
+        ],
+        allowed_response_options=PayPalResponseOptions(**response_types),
+        links=links,
+    )
+    metadata.normalization_warnings = list(dict.fromkeys(n.warnings))
+    return metadata
+
+
+def normalized_case(snapshot: Json, policy_id: str) -> CaseInput:
+    """Keep the original provider snapshot unverified alongside typed observations."""
+    if not isinstance(snapshot, dict):
+        raise _invalid("Dispute snapshot must be a JSON object")
+    dispute_id = _text(
+        snapshot.get("dispute_id"), "dispute_id", maximum=128, pattern=r"[A-Za-z0-9-]+"
+    )
+    reason = _text(snapshot.get("reason"), "reason", maximum=128)
+    provider_amount = snapshot.get("dispute_amount")
+    if not isinstance(provider_amount, dict):
+        raise _invalid("Dispute amount must be supplied by PayPal")
+    amount = {
+        key: provider_amount[key] for key in ("value", "currency_code") if key in provider_amount
+    }
     _money(amount, "dispute_amount")
-    encoded = json.dumps(snapshot, ensure_ascii=False, sort_keys=True)
+    try:
+        encoded = json.dumps(snapshot, ensure_ascii=False, sort_keys=True, allow_nan=False)
+    except (ValueError, TypeError):
+        raise _invalid("Dispute snapshot must contain valid JSON values") from None
     if len(encoded) > 40_000:
         raise _invalid("Dispute snapshot exceeds case evidence size limit")
-    return CaseInput(
-        external_id=snapshot["dispute_id"],
-        reason=snapshot["reason"],
-        amount=Decimal(amount["value"]),
-        currency=amount["currency_code"],
-        summary=f"PayPal dispute {snapshot['dispute_id']}: {snapshot['reason']}. Status: {snapshot.get('status', 'UNKNOWN')}. Stage: {snapshot.get('dispute_life_cycle_stage', 'UNKNOWN')}.",
-        evidence=[
-            Evidence(
-                id="paypal_snapshot",
-                kind="paypal",
-                content=encoded,
-                verified=False,
-                source="paypal_api",
-            )
-        ],
-        policy_id=policy_id,
-        allowed_actions=available_actions(snapshot),
-    )
+    metadata = normalize_dispute_metadata(snapshot)
+    summary = f"PayPal dispute {dispute_id}: {reason}."
+    if metadata.status is not None:
+        summary += f" Status: {metadata.status}."
+    if metadata.dispute_life_cycle_stage is not None:
+        summary += f" Stage: {metadata.dispute_life_cycle_stage}."
+    try:
+        return CaseInput(
+            external_id=dispute_id,
+            reason=reason,
+            amount=Decimal(amount["value"]),
+            currency=amount["currency_code"],
+            summary=summary,
+            evidence=[
+                Evidence(
+                    id="paypal_snapshot",
+                    kind="paypal",
+                    content=encoded,
+                    verified=False,
+                    source="paypal_api",
+                )
+            ],
+            policy_id=policy_id,
+            allowed_actions=available_actions(snapshot),
+            paypal=metadata,
+        )
+    except ValidationError:
+        raise _invalid("Dispute snapshot exceeds the validated case contract limits") from None
 
 
 class PayPalClient:

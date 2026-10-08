@@ -22,6 +22,9 @@ import { ACTION_LABELS, caseCode, date, exportFile, money, shortHash } from '../
 import { StatusBadge } from './CaseGrid';
 import ProofGraph from './ProofGraph';
 import AuditTimeline from './AuditTimeline';
+import AnalysisDiagnostics from './AnalysisDiagnostics';
+import PayPalCaseDetails from './PayPalCaseDetails';
+import ProcessingTrace from './ProcessingTrace';
 import { EvidenceDialog, ExecuteDialog, ReviewDialog } from './Dialogs';
 
 const safe = (promise: Promise<unknown>) => {
@@ -56,6 +59,7 @@ export default function CaseDetail({ item, onBack }: { item: WorkspaceCase; onBa
   const simulated =
     workspace.connection.mode === 'demo' || workspace.connection.executionMode === 'dry_run';
   const unique = solver?.status === 'unique' && solver.enumeration_complete;
+  const establishedResponse = unique && Boolean(result?.governance.recommended_action);
   const inconsistent = solver?.status === 'inconsistent';
 
   const evidenceList = (
@@ -185,11 +189,11 @@ export default function CaseDetail({ item, onBack }: { item: WorkspaceCase; onBa
               <dd>Version {item.version}</dd>
             </div>
             <div>
-              <dt>Order reference</dt>
+              <dt>{item.origin === 'paypal' ? 'Transaction reference' : 'Order reference'}</dt>
               <dd className="mono">{item.display.orderId}</dd>
             </div>
             <div>
-              <dt>Opened</dt>
+              <dt>{item.origin === 'paypal' ? 'Imported into workspace' : 'Opened'}</dt>
               <dd>{date(item.created_at, { month: 'short', day: 'numeric', year: 'numeric' })}</dd>
             </div>
             <div>
@@ -197,6 +201,7 @@ export default function CaseDetail({ item, onBack }: { item: WorkspaceCase; onBa
               <dd>{item.display.channel}</dd>
             </div>
           </dl>
+          <PayPalCaseDetails item={item} />
           <button
             className="button secondary small"
             onClick={() =>
@@ -254,7 +259,7 @@ export default function CaseDetail({ item, onBack }: { item: WorkspaceCase; onBa
                       ? 'Resolve the conflict'
                       : solver?.status === 'multiple'
                         ? 'Human judgment required'
-                        : 'Ready for analysis'}
+                        : 'More information needed'}
               </h2>
               <p>
                 {executed
@@ -275,21 +280,26 @@ export default function CaseDetail({ item, onBack }: { item: WorkspaceCase; onBa
                               ? 'The evidence conflicts. Review the sources before choosing a response.'
                               : solver?.status === 'multiple'
                                 ? 'More than one response is supported. Compare the evidence and record your judgment.'
-                                : unique
+                                : establishedResponse
                                   ? 'The evidence and policy support this response.'
-                                  : 'The analysis is incomplete. Review the sources before choosing a response.'}
+                                  : unique
+                                    ? 'No response was established. Check the analysis diagnostics and supporting evidence.'
+                                    : 'The analysis is incomplete. Review the sources before choosing a response.'}
               </p>
               {current && (
                 <p className="decision-outcome">
-                  {unique
+                  {establishedResponse
                     ? 'One consistent outcome'
-                    : solver?.status === 'multiple' && solver.enumeration_complete
-                      ? `${solver.models.length} valid outcomes`
-                      : inconsistent
-                        ? 'Conflicting evidence'
-                        : 'Reasoning incomplete'}
+                    : unique
+                      ? 'No response established'
+                      : solver?.status === 'multiple' && solver.enumeration_complete
+                        ? `${solver.models.length} valid outcomes`
+                        : inconsistent
+                          ? 'Conflicting evidence'
+                          : 'Reasoning incomplete'}
                 </p>
               )}
+              {current && <AnalysisDiagnostics solver={solver} />}
               {current && !item.review && result?.governance.requires_human && (
                 <p className="decision-requirement">
                   Your review is required before a response can be sent.
@@ -436,7 +446,7 @@ export default function CaseDetail({ item, onBack }: { item: WorkspaceCase; onBa
                           <div>
                             <strong>Apply the policy</strong>
                             <p>
-                              {result.retrieval.clauses.length} exact clauses retrieved.{' '}
+                              {result.retrieval?.clauses.length ?? 0} exact clauses retrieved.{' '}
                               {result.knowledge_base?.priorities.length ?? 0} rule priorities
                               checked.
                             </p>
@@ -481,13 +491,15 @@ export default function CaseDetail({ item, onBack }: { item: WorkspaceCase; onBa
                         <i style={{ width: `${result.governance.confidence * 100}%` }} />
                       </div>
                       <small>
-                        {unique
+                        {establishedResponse
                           ? 'A unique, complete reasoning outcome'
-                          : solver?.status === 'multiple'
-                            ? 'Multiple outcomes require a reviewer'
-                            : inconsistent
-                              ? 'No consistent decision established'
-                              : 'Reasoning is incomplete or unavailable'}
+                          : unique
+                            ? 'No merchant response established'
+                            : solver?.status === 'multiple'
+                              ? 'Multiple outcomes require a reviewer'
+                              : inconsistent
+                                ? 'No consistent decision established'
+                                : 'Reasoning is incomplete or unavailable'}
                       </small>
                     </div>
                     <ul className="decision-reasons">
@@ -499,6 +511,7 @@ export default function CaseDetail({ item, onBack }: { item: WorkspaceCase; onBa
                       This score reflects operational checks, not the probability of winning a
                       dispute.
                     </p>
+                    <ProcessingTrace steps={result.stage_trace} />
                   </>
                 )}
                 {solver && (

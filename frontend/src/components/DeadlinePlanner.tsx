@@ -4,6 +4,7 @@ import type { ColumnConfig } from '@bryntum/scheduler';
 import { CalendarDays } from 'lucide-react';
 import type { WorkspaceCase } from '../types';
 import { caseCode } from '../lib/format';
+import { caseOpenedAt } from '../lib/cases';
 import '@bryntum/scheduler/fontawesome/css/fontawesome.css';
 import '@bryntum/scheduler/fontawesome/css/solid.css';
 import '@bryntum/scheduler/scheduler.css';
@@ -33,7 +34,7 @@ export default function DeadlinePlanner({
       cases
         .filter((item) => {
           if (completedStatuses.has(item.status) || !item.display.dueAt) return false;
-          const start = Date.parse(item.created_at);
+          const start = Date.parse(caseOpenedAt(item));
           const end = Date.parse(item.display.dueAt);
           return Number.isFinite(start) && Number.isFinite(end) && end > start;
         })
@@ -48,7 +49,9 @@ export default function DeadlinePlanner({
     if (!host.current || !scheduled.length) return;
     let scheduler: Scheduler | undefined;
     setFailed(false);
-    const firstDate = new Date(Math.min(...scheduled.map((item) => Date.parse(item.created_at))));
+    const firstDate = new Date(
+      Math.min(...scheduled.map((item) => Date.parse(caseOpenedAt(item)))),
+    );
     const lastDate = new Date(
       Math.max(...scheduled.map((item) => Date.parse(item.display.dueAt!))),
     );
@@ -111,7 +114,7 @@ export default function DeadlinePlanner({
         events: scheduled.map((item) => ({
           id: `deadline-${item.id}`,
           resourceId: item.id,
-          startDate: new Date(item.created_at),
+          startDate: new Date(caseOpenedAt(item)),
           endDate: new Date(item.display.dueAt!),
           name: `Due ${dateLabel.format(new Date(item.display.dueAt!))}`,
           cls:

@@ -13,9 +13,20 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from time import perf_counter
 from typing import TYPE_CHECKING, Any, Protocol
 
-from .domain import CaseInput, Clause, PolicyDocument, PolicySection, RetrievalResult
+from .domain import (
+    CaseInput,
+    Clause,
+    PolicyDocument,
+    PolicySection,
+    PolicySelectionInput,
+    PolicySelectionOutput,
+    RetrievalResult,
+    RetrievalTraceStep,
+)
+from .verification import contract_hash
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -215,17 +226,39 @@ class PolicyCatalog:
         ):
             raise PolicyError("Real policy retrieval requires a configured LLM section selector.")
         clauses: list[Clause] = []
-        trace: list[dict[str, Any]] = []
+        trace: list[RetrievalTraceStep] = []
 
         async def walk(sections: Sequence[PolicySection], path: list[str]) -> None:
             if not sections:
                 return
             headings = _headings(sections)
-            selected = (
-                await extractor.select_sections(case, headings, path)
-                if extractor is not None
-                else _demo_selection(case, headings)
+            request = PolicySelectionInput.model_validate(
+                {"case": case.model_dump(mode="json"), "headings": headings, "path": path}
             )
+            started = perf_counter()
+            input_hash = contract_hash(request)
+            producer_input = request.model_copy(deep=True)
+            raw = (
+                await extractor.select_sections(
+                    producer_input.case,
+                    [h.model_dump(mode="json") for h in producer_input.headings],
+                    producer_input.path,
+                )
+                if extractor is not None
+                else _demo_selection(request.case, headings)
+            )
+            try:
+                if isinstance(raw, PolicySelectionOutput):
+                    output = PolicySelectionOutput.model_validate(raw.model_dump(mode="json"))
+                elif isinstance(raw, dict):
+                    output = PolicySelectionOutput.model_validate(raw)
+                else:
+                    output = PolicySelectionOutput.model_validate({"section_ids": raw})
+            except ValueError as exc:
+                raise PolicyError(
+                    "STAIR selector returned an invalid versioned output contract."
+                ) from exc
+            selected = output.section_ids
             allowed = {section.id for section in sections}
             if not isinstance(selected, list) or any(
                 not isinstance(value, str) or value not in allowed for value in selected
@@ -234,14 +267,20 @@ class PolicyCatalog:
             if len(selected) != len(set(selected)):
                 raise PolicyError("STAIR selector returned duplicate section IDs.")
             trace.append(
-                {
-                    "path": list(path),
-                    "offered": [section.id for section in sections],
-                    "selected": list(selected),
-                    "selector": "deterministic_demo"
+                RetrievalTraceStep(
+                    path=list(path),
+                    offered=[section.id for section in sections],
+                    selected=list(selected),
+                    selector="deterministic_demo"
                     if extractor is None or getattr(extractor, "provider", None) == "demo"
                     else "llm",
-                }
+                    mode="deterministic"
+                    if extractor is None or getattr(extractor, "provider", None) == "demo"
+                    else "probabilistic",
+                    duration_ms=(perf_counter() - started) * 1000,
+                    input_sha256=input_hash,
+                    output_sha256=contract_hash(output),
+                )
             )
             for section in sections:
                 if section.id not in selected:
@@ -277,6 +316,7 @@ class PolicyCatalog:
             synthetic=document.synthetic,
             clauses=clauses,
             trace=trace,
+            authoritative_vocabulary=document.authoritative_vocabulary,
         )
 
 

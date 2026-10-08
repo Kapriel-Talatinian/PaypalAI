@@ -1,0 +1,50 @@
+.provider-record {
+  padding-top: 18px;
+  border-top: 1px solid #ebeff5;
+}
+.provider-record h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+.provider-record dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.provider-record dd,
+.provider-record li {
+  overflow-wrap: anywhere;
+}
+.provider-record details {
+  padding: 14px 0;
+  border-top: 1px solid #ebeff5;
+}
+.provider-record summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.provider-record article {
+  padding-top: 10px;
+}
+.provider-record ul {
+  display: grid;
+  gap: 10px;
+  padding-left: 20px;
+  font-size: 13px;
+}
+.provider-record p,
+.provider-record-note {
+  margin: 8px 0;
+  color: #696969;
+  font-size: 13px;
+}
+.provider-record-warning {
+  padding: 12px;
+  border-radius: 6px;
+  background: #fffaf0;
+}
+@media (max-width: 600px) {
+  .provider-record dl {
+    grid-template-columns: 1fr;
+  }
+}

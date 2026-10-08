@@ -1,0 +1,250 @@
+{
+  "external_id": "PP-D-424242",
+  "reason": "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+  "amount": "79.50",
+  "currency": "EUR",
+  "summary": "PayPal dispute PP-D-424242: MERCHANDISE_OR_SERVICE_NOT_RECEIVED. Status: WAITING_FOR_SELLER_RESPONSE. Stage: CHARGEBACK.",
+  "evidence": [
+    {
+      "id": "paypal_snapshot",
+      "kind": "paypal",
+      "content": "{\"allowed_response_options\": {\"accept_claim\": {\"accept_claim_types\": [\"REFUND\", \"PARTIAL_REFUND\"]}, \"acknowledge_return_item\": {\"acknowledgement_types\": [\"ITEM_RECEIVED\"]}, \"make_offer\": {\"offer_types\": [\"REFUND\", \"REFUND_WITH_RETURN\"]}}, \"buyer_response_due_date\": \"2026-10-20T23:59:59Z\", \"create_time\": \"2026-10-01T10:00:00Z\", \"dispute_amount\": {\"currency_code\": \"EUR\", \"value\": \"79.50\"}, \"dispute_channel\": \"INTERNAL\", \"dispute_id\": \"PP-D-424242\", \"dispute_life_cycle_stage\": \"CHARGEBACK\", \"dispute_outcome\": {\"amount_refunded\": {\"currency_code\": \"EUR\", \"value\": \"20.00\"}, \"outcome_code\": \"NONE\"}, \"dispute_state\": \"REQUIRED_ACTION\", \"disputed_transactions\": [{\"buyer\": {\"name\": \"Demo Customer\"}, \"buyer_transaction_id\": \"4EF424242GH\", \"create_time\": \"2026-09-28T09:12:00Z\", \"custom\": \"Merchant checkout reference\", \"gross_amount\": {\"currency_code\": \"EUR\", \"value\": \"99.50\"}, \"invoice_number\": \"INV-1037\", \"items\": [{\"dispute_amount\": {\"currency_code\": \"EUR\", \"value\": \"79.50\"}, \"item_description\": \"Black, model B\", \"item_id\": \"SKU4242\", \"item_name\": \"Wireless headphones\", \"item_quantity\": \"2\", \"item_type\": \"PRODUCT\", \"notes\": \"One of two packages is disputed.\", \"partner_transaction_id\": \"PARTNER4242\", \"reason\": \"MERCHANDISE_OR_SERVICE_NOT_RECEIVED\"}], \"reference_id\": \"ORDER-1037\", \"seller\": {\"email\": \"merchant@example.test\", \"merchant_id\": \"MERCHANT4242\", \"name\": \"Demo Merchant\"}, \"seller_transaction_id\": \"8AB424242CD\", \"transaction_status\": \"PARTIALLY_REFUNDED\"}], \"evidences\": [{\"action_info\": {\"action\": \"PROVIDE_EVIDENCE\", \"mandatory\": true}, \"date\": \"2026-10-07T14:00:00Z\", \"dispute_life_cycle_stage\": \"CHARGEBACK\", \"documents\": [{\"name\": \"shipping-label.pdf\", \"url\": \"https://api.paypal.com/files/label\"}], \"evidence_info\": {\"tracking_info\": [{\"carrier_name\": \"OTHER\", \"carrier_name_other\": \"Demo Carrier\", \"tracking_number\": \"TRACK4242\", \"tracking_url\": \"https://carrier.example.test/track/TRACK4242\"}]}, \"evidence_type\": \"PROOF_OF_FULFILLMENT\", \"item_id\": \"SKU4242\", \"item_type\": \"PRODUCT\", \"notes\": \"Seller submitted tracking.\", \"source\": \"SELLER\"}, {\"action_info\": {\"action\": \"ACCEPT_CLAIM\", \"mandatory\": false, \"response_option\": \"PARTIAL_REFUND\"}, \"date\": \"2026-10-07T15:00:00Z\", \"evidence_info\": {\"refund_ids\": [\"REFUND4242\"]}, \"evidence_type\": \"PROOF_OF_REFUND\", \"source\": \"SELLER\"}, {\"action_info\": {\"action\": \"PROVIDE_EVIDENCE\", \"mandatory\": true}, \"evidence_type\": \"PROOF_OF_DELIVERY_SIGNATURE\"}], \"extensions\": {\"merchandize_dispute_properties\": {\"product_details\": {\"description\": \"Buyer reports no delivery.\", \"expected_delivery_date\": \"2026-10-02T18:00:00Z\", \"product_received\": \"NO\", \"return_details\": {\"mode\": \"SHIPPED\", \"receipt\": false, \"return_confirmation_number\": \"RETURN4242\", \"return_time\": \"2026-10-06T12:00:00Z\", \"returned\": false}}, \"return_shipping_address\": {\"address_line_1\": \"42 Example Street\", \"admin_area_2\": \"Paris\", \"country_code\": \"FR\", \"postal_code\": \"75001\"}}}, \"links\": [{\"href\": \"https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-D-424242\", \"method\": \"GET\", \"rel\": \"self\"}, {\"href\": \"https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-D-424242/provide-evidence\", \"method\": \"POST\", \"rel\": \"provide_evidence\"}], \"money_movements\": [{\"affected_party\": \"BUYER\", \"amount\": {\"currency_code\": \"EUR\", \"value\": \"20.00\"}, \"initiated_time\": \"2026-10-07T15:00:00Z\", \"reason\": \"PARTIAL_REFUND\", \"type\": \"REFUND\"}], \"reason\": \"MERCHANDISE_OR_SERVICE_NOT_RECEIVED\", \"refund_details\": {\"allowed_refund_amount\": {\"currency_code\": \"EUR\", \"value\": \"79.50\"}}, \"seller_response_due_date\": \"2026-10-16T23:59:59+02:00\", \"status\": \"WAITING_FOR_SELLER_RESPONSE\", \"supporting_info\": [{\"dispute_life_cycle_stage\": \"CHARGEBACK\", \"documents\": [{\"name\": \"correspondence.pdf\"}], \"notes\": \"Buyer provided correspondence.\", \"provided_time\": \"2026-10-07T16:00:00Z\", \"source\": \"BUYER\"}], \"update_time\": \"2026-10-08T12:30:00Z\"}",
+      "verified": false,
+      "source": "paypal_api"
+    }
+  ],
+  "policy_id": "demo_policy",
+  "auto_execute": false,
+  "allowed_actions": ["provide_evidence"],
+  "paypal": {
+    "dispute_id": "PP-D-424242",
+    "reason": "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+    "status": "WAITING_FOR_SELLER_RESPONSE",
+    "dispute_state": "REQUIRED_ACTION",
+    "dispute_life_cycle_stage": "CHARGEBACK",
+    "dispute_channel": "INTERNAL",
+    "create_time": "2026-10-01T10:00:00Z",
+    "update_time": "2026-10-08T12:30:00Z",
+    "seller_response_due_date": "2026-10-16T23:59:59+02:00",
+    "buyer_response_due_date": "2026-10-20T23:59:59Z",
+    "transactions": [
+      {
+        "seller_transaction_id": "8AB424242CD",
+        "buyer_transaction_id": "4EF424242GH",
+        "reference_id": "ORDER-1037",
+        "create_time": "2026-09-28T09:12:00Z",
+        "transaction_status": "PARTIALLY_REFUNDED",
+        "gross_amount": {
+          "value": "99.50",
+          "currency_code": "EUR"
+        },
+        "invoice_number": "INV-1037",
+        "custom": "Merchant checkout reference",
+        "buyer": {
+          "name": "Demo Customer",
+          "email": null,
+          "merchant_id": null
+        },
+        "seller": {
+          "name": "Demo Merchant",
+          "email": "merchant@example.test",
+          "merchant_id": "MERCHANT4242"
+        },
+        "items": [
+          {
+            "item_id": "SKU4242",
+            "item_name": "Wireless headphones",
+            "item_description": "Black, model B",
+            "item_quantity": 2,
+            "item_type": "PRODUCT",
+            "reason": "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+            "dispute_amount": {
+              "value": "79.50",
+              "currency_code": "EUR"
+            },
+            "partner_transaction_id": "PARTNER4242",
+            "notes": "One of two packages is disputed."
+          }
+        ]
+      }
+    ],
+    "existing_evidence": [
+      {
+        "evidence_type": "PROOF_OF_FULFILLMENT",
+        "source": "SELLER",
+        "date": "2026-10-07T14:00:00Z",
+        "notes": "Seller submitted tracking.",
+        "item_id": "SKU4242",
+        "item_type": "PRODUCT",
+        "dispute_life_cycle_stage": "CHARGEBACK",
+        "action_info": {
+          "evidence_type": "PROOF_OF_FULFILLMENT",
+          "action": "PROVIDE_EVIDENCE",
+          "response_option": null,
+          "mandatory": true
+        },
+        "tracking_info": [
+          {
+            "carrier_name": "OTHER",
+            "carrier_name_other": "Demo Carrier",
+            "tracking_number": "TRACK4242",
+            "tracking_url": "https://carrier.example.test/track/TRACK4242"
+          }
+        ],
+        "refund_ids": [],
+        "documents": [
+          {
+            "name": "shipping-label.pdf",
+            "url": "https://api.paypal.com/files/label"
+          }
+        ]
+      },
+      {
+        "evidence_type": "PROOF_OF_REFUND",
+        "source": "SELLER",
+        "date": "2026-10-07T15:00:00Z",
+        "notes": null,
+        "item_id": null,
+        "item_type": null,
+        "dispute_life_cycle_stage": null,
+        "action_info": {
+          "evidence_type": "PROOF_OF_REFUND",
+          "action": "ACCEPT_CLAIM",
+          "response_option": "PARTIAL_REFUND",
+          "mandatory": false
+        },
+        "tracking_info": [],
+        "refund_ids": ["REFUND4242"],
+        "documents": []
+      },
+      {
+        "evidence_type": "PROOF_OF_DELIVERY_SIGNATURE",
+        "source": null,
+        "date": null,
+        "notes": null,
+        "item_id": null,
+        "item_type": null,
+        "dispute_life_cycle_stage": null,
+        "action_info": {
+          "evidence_type": "PROOF_OF_DELIVERY_SIGNATURE",
+          "action": "PROVIDE_EVIDENCE",
+          "response_option": null,
+          "mandatory": true
+        },
+        "tracking_info": [],
+        "refund_ids": [],
+        "documents": []
+      }
+    ],
+    "requested_evidence": [
+      {
+        "evidence_type": "PROOF_OF_FULFILLMENT",
+        "action": "PROVIDE_EVIDENCE",
+        "response_option": null,
+        "mandatory": true
+      },
+      {
+        "evidence_type": "PROOF_OF_REFUND",
+        "action": "ACCEPT_CLAIM",
+        "response_option": "PARTIAL_REFUND",
+        "mandatory": false
+      },
+      {
+        "evidence_type": "PROOF_OF_DELIVERY_SIGNATURE",
+        "action": "PROVIDE_EVIDENCE",
+        "response_option": null,
+        "mandatory": true
+      }
+    ],
+    "supporting_info": [
+      {
+        "notes": "Buyer provided correspondence.",
+        "source": "BUYER",
+        "provided_time": "2026-10-07T16:00:00Z",
+        "dispute_life_cycle_stage": "CHARGEBACK",
+        "documents": [
+          {
+            "name": "correspondence.pdf",
+            "url": null
+          }
+        ]
+      }
+    ],
+    "tracking_info": [
+      {
+        "carrier_name": "OTHER",
+        "carrier_name_other": "Demo Carrier",
+        "tracking_number": "TRACK4242",
+        "tracking_url": "https://carrier.example.test/track/TRACK4242"
+      }
+    ],
+    "refund_ids": ["REFUND4242"],
+    "delivery_details": [
+      {
+        "source_path": "extensions.merchandize_dispute_properties.product_details",
+        "item_id": null,
+        "description": "Buyer reports no delivery.",
+        "product_received": "NO",
+        "product_received_time": null,
+        "expected_delivery_date": "2026-10-02T18:00:00Z",
+        "return_time": "2026-10-06T12:00:00Z",
+        "return_mode": "SHIPPED",
+        "return_receipt": false,
+        "returned": false,
+        "return_confirmation_number": "RETURN4242"
+      }
+    ],
+    "return_shipping_address": {
+      "address_line_1": "42 Example Street",
+      "address_line_2": null,
+      "address_line_3": null,
+      "admin_area_1": null,
+      "admin_area_2": "Paris",
+      "admin_area_3": null,
+      "admin_area_4": null,
+      "postal_code": "75001",
+      "country_code": "FR"
+    },
+    "refund_details": {
+      "allowed_refund_amount": {
+        "value": "79.50",
+        "currency_code": "EUR"
+      },
+      "amount_refunded": {
+        "value": "20.00",
+        "currency_code": "EUR"
+      },
+      "outcome_code": "NONE"
+    },
+    "money_movements": [
+      {
+        "affected_party": "BUYER",
+        "amount": {
+          "value": "20.00",
+          "currency_code": "EUR"
+        },
+        "initiated_time": "2026-10-07T15:00:00Z",
+        "type": "REFUND",
+        "reason": "PARTIAL_REFUND"
+      }
+    ],
+    "allowed_response_options": {
+      "accept_claim_types": ["REFUND", "PARTIAL_REFUND"],
+      "offer_types": ["REFUND", "REFUND_WITH_RETURN"],
+      "acknowledgement_types": ["ITEM_RECEIVED"]
+    },
+    "links": [
+      {
+        "href": "https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-D-424242",
+        "rel": "self",
+        "method": "GET"
+      },
+      {
+        "href": "https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-D-424242/provide-evidence",
+        "rel": "provide_evidence",
+        "method": "POST"
+      }
+    ],
+    "normalization_warnings": []
+  }
+}

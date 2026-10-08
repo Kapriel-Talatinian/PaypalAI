@@ -23,6 +23,7 @@ import type {
 } from '../types';
 import { ACTION_LABELS } from '../lib/format';
 import './proof.css';
+import AnalysisDiagnostics from './AnalysisDiagnostics';
 
 export interface ProofGraphProps {
   run: RunView | null;
@@ -155,7 +156,7 @@ function createGraph(run: RunView, model: StableModel | undefined) {
     });
   });
   rules.forEach((rule, index) => {
-    const clause = result?.retrieval.clauses.find(
+    const clause = result?.retrieval?.clauses.find(
       (item) => item.id === rule.citations[0]?.clause_id,
     );
     const state = stateOf(rule);
@@ -332,7 +333,7 @@ function solverStatusLabel(status: string | undefined) {
 }
 
 function SourceQuote({ citation, run }: { citation: Citation; run: RunView }) {
-  const clause = run.result?.retrieval.clauses.find((item) => item.id === citation.clause_id);
+  const clause = run.result?.retrieval?.clauses.find((item) => item.id === citation.clause_id);
   const isWeb =
     clause?.source_url.startsWith('https://') || clause?.source_url.startsWith('http://');
   return (
@@ -528,7 +529,7 @@ export default function ProofGraph({ run }: ProofGraphProps) {
       `${item.id} ${item.source} ${item.content}`.toLowerCase().includes(sourceQuery.toLowerCase()),
     ) ?? [];
   const clauses =
-    run?.result?.retrieval.clauses.filter((item) =>
+    run?.result?.retrieval?.clauses.filter((item) =>
       `${item.id} ${item.title} ${item.text}`.toLowerCase().includes(sourceQuery.toLowerCase()),
     ) ?? [];
   if (!run?.result || !solver)
@@ -587,6 +588,7 @@ export default function ProofGraph({ run }: ProofGraphProps) {
           </button>
         </div>
       </div>
+      <AnalysisDiagnostics solver={solver} />
       <div className="proof-legend">
         <span>
           <i className="proof-dot proof-dot-applied" />

@@ -81,6 +81,7 @@ test('every policy quotation is an exact source substring and every fact referen
   for (const item of cases) {
     const result = item.latest_run?.result;
     if (!result?.knowledge_base || !result.solver) continue;
+    if (!result.retrieval) throw new Error('A completed demo analysis requires retrieved clauses');
     const clauses = new Map(result.retrieval.clauses.map((clause) => [clause.id, clause]));
     for (const source of [...result.knowledge_base.rules, ...result.knowledge_base.priorities]) {
       expect(source.citations.length).toBeGreaterThan(0);
@@ -117,6 +118,7 @@ test('audit chains verify and disclose tampering', async () => {
 test('unsupported policies never receive a fabricated solver recommendation', async () => {
   const [item] = await createDemoCases();
   const result = replayDemoAnalysis({ ...item.data, policy_id: 'reviewed_real_policy' });
+  if (!result.retrieval) throw new Error('The failed demo must identify the requested policy');
   expect(result.solver).toBeNull();
   expect(result.governance.recommended_action).toBeNull();
   expect(result.retrieval.policy_id).toBe('reviewed_real_policy');

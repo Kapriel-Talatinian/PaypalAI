@@ -1,3 +1,5 @@
+import type { PayPalDisputeMetadata } from './paypal-types';
+
 export type Action =
   'accept_claim' | 'provide_evidence' | 'make_offer' | 'escalate' | 'send_message' | 'no_action';
 export type ExecutionMode = 'dry_run' | 'sandbox' | 'live';
@@ -19,6 +21,7 @@ export interface CaseInput {
   policy_id: string;
   auto_execute: boolean;
   allowed_actions: Action[];
+  paypal?: PayPalDisputeMetadata | null;
 }
 export interface Literal {
   name: string;
@@ -68,7 +71,19 @@ export interface Retrieval {
   policy_version: string;
   synthetic: boolean;
   clauses: Clause[];
-  trace: Record<string, unknown>[];
+  trace: Array<RetrievalTraceStep | { status: 'offline_fixture_unavailable' }>;
+  authoritative_vocabulary?: string[] | null;
+}
+export interface RetrievalTraceStep {
+  contract_version?: '1.0';
+  path: string[];
+  offered: string[];
+  selected: string[];
+  selector: 'deterministic_demo' | 'llm';
+  mode?: 'deterministic' | 'probabilistic';
+  duration_ms?: number;
+  input_sha256?: string | null;
+  output_sha256?: string | null;
 }
 export interface StableModel {
   id: string;
@@ -102,6 +117,16 @@ export interface SolverResult {
   credulous: Literal[];
   proof: ProofGraph;
   diagnostics: string[];
+  diagnostic_details?: SolverDiagnostic[];
+}
+export interface SolverDiagnostic {
+  code: string;
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  fact_ids: string[];
+  rule_ids: string[];
+  literals: string[];
+  suggestions: string[];
 }
 export interface Governance {
   recommended_action: Action | null;
@@ -111,12 +136,39 @@ export interface Governance {
   components: Record<string, number>;
 }
 export interface AnalysisResult {
-  retrieval: Retrieval;
+  contract_version?: '1.0';
+  retrieval: Retrieval | null;
   knowledge_base: KnowledgeBase | null;
   solver: SolverResult | null;
   governance: Governance;
-  attempts: Record<string, unknown>[];
+  attempts: AnalysisAttempt[];
   agents: string[];
+  stage_trace?: AnalysisStep[];
+}
+export interface AnalysisAttempt {
+  contract_version?: '1.0';
+  attempt: number;
+  status: SolverStatus | 'invalid_extraction' | 'component_failed';
+  knowledge_base?: KnowledgeBase | null;
+  program_sha256?: string | null;
+  solver?: SolverResult | null;
+  diagnostics: string[];
+  decision?: 'return' | 'repair' | 'reject';
+}
+export interface AnalysisStep {
+  contract_version: '1.0';
+  component: 'policy_retrieval' | 'extraction' | 'verification' | 'asp_reasoning' | 'governance';
+  mode: 'deterministic' | 'probabilistic';
+  attempt: number;
+  status: 'succeeded' | 'rejected' | 'failed';
+  decision: string;
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+  input_sha256: string;
+  output_sha256: string | null;
+  error_code: string | null;
+  diagnostics: string[];
 }
 export interface RunView {
   id: string;
@@ -201,6 +253,7 @@ export interface PolicyDocument {
   source_url: string;
   synthetic: boolean;
   sections: PolicySection[];
+  authoritative_vocabulary?: string[] | null;
 }
 export interface WorkspacePolicy {
   id: string;

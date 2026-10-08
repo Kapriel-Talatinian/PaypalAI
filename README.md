@@ -1,6 +1,6 @@
 # DisputeFlow
 
-DisputeFlow is an auditable, neuro-symbolic workspace for PayPal dispute handling. A coordinator delegates policy navigation, grounded extraction, deterministic ASP reasoning, governance, and merchant response execution to distinct agents. The React dashboard brings cases, evidence, reasoning, policy references, and human review into one interface.
+DisputeFlow is an auditable, neuro-symbolic workspace for PayPal dispute handling. A coordinator runs policy navigation, grounded extraction, independent provenance verification, deterministic ASP reasoning, and governance through versioned component contracts. The React dashboard brings cases, evidence, reasoning, policy references, and human review into one interface. Merchant response execution remains a separate guarded workflow.
 
 The source specification is [`deepseek_markdown_20261005_70ab51.md`](deepseek_markdown_20261005_70ab51.md). It ends at the architecture diagram; API contracts, rule semantics, persistence and operational controls below are implementation choices, not additional requirements attributed to that document.
 
@@ -85,16 +85,18 @@ Disputed exposure is separate from the labor projection and grouped by original 
 
 ## Architecture and semantics
 
-1. A dispute and evidence are versioned and persisted. PayPal imports retain a provenance-marked API snapshot.
+1. A dispute and evidence are versioned and persisted. PayPal imports retain an exact provenance-marked API snapshot and validated structured metadata: status, lifecycle, transactions, items, evidence requirements, response options, delivery, refunds and provider timestamps. The planner uses the seller's actual response deadline; missing values remain unknown.
 2. STAIR navigation descends the policy's hierarchical table of contents. It returns exact section text, path, version, URL, hash and a navigation trace. OpenAI selects sections in real mode; deterministic navigation is available for synthetic demos only.
-3. The extractor returns validated facts, strict/defeasible rules, blocking defeaters and an acyclic superiority relation. Every rule and priority must quote a retrieved clause verbatim; every fact must reference supplied evidence. The model cannot provide executable ASP.
+3. The extractor returns typed facts, strict/defeasible rules, blocking defeaters and an acyclic superiority relation. A separate deterministic verifier checks every fact's supplied evidence references, source hashes, and every rule/priority's verbatim retrieved-clause quotations. It does not prove semantic entailment. The model cannot provide executable ASP.
 4. The compiler creates grounded ASP. Strong negation expresses contrary facts; default negation expresses exceptions. Priorities resolve conflicting applicable rules. Equally ranked opposing defeasible arguments admit alternative consistent extensions. Defeaters block contrary arguments without establishing their own conclusion. Facts and strict consequences prevail over defeasible rules.
-5. Clingo enumerates stable models under time and model limits. Zero models trigger bounded re-extraction with diagnostics. Original inputs and each attempt are retained; unresolved inconsistency escalates. Complete enumeration yields skeptical and credulous conclusions. Incomplete enumeration cannot authorize execution.
+5. Clingo enumerates stable models under time and model limits. Zero models trigger bounded re-extraction with diagnostics. Original inputs and each attempt are retained; unresolved inconsistency escalates. Complete enumeration yields skeptical and credulous conclusions. Incomplete enumeration cannot authorize execution. Structured diagnostics flag unreachable rules, unsupported vocabulary and irrelevant facts without changing the ASP program; a unique model without an executable response stays on hold.
 6. Governance considers extraction confidence, verified evidence provenance, action consensus, complete enumeration, warnings, amount, currency and policy provenance. The operational score is **not** a calibrated probability of winning a dispute. Multiple models always require review, including when they suggest the same action.
-7. The backend records a hash-linked audit log and graph connecting evidence, literals, rules, priorities and model decisions. The exact extracted knowledge base, retrieval, program and program hash are stored with the run.
+7. The backend records a hash-linked audit log and graph connecting evidence, literals, rules, priorities, diagnostics and model decisions. The exact extracted knowledge base, retrieval, program and program hash are stored with the run. Compact stage traces record input/output hashes, timing, repair/rejection decisions and sanitized errors, including component failures and timeouts.
 8. Execution submits a permitted merchant response through PayPal after a fresh HATEOAS check. A merchant response does not let this application adjudicate a case on PayPal's behalf. Only PayPal can resolve contested claims.
 
 Decision literals use `decision_accept_claim`, `decision_provide_evidence`, `decision_make_offer`, `decision_escalate`, `decision_send_message`, and `decision_no_action`. Domain symbols are validated identifiers; raw ASP from a model or API caller is never accepted.
+
+The actual component schemas, verification limits, optional policy vocabulary, trace replay and compatibility behavior are documented in [docs/AGENT_CONTRACTS.md](docs/AGENT_CONTRACTS.md). Only policy selection and extraction use the configured LLM; the other analysis stages are deterministic. These contracts add no model calls and do not change the compiler's existing rule semantics.
 
 ## API
 

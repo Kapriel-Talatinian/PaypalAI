@@ -5,9 +5,10 @@ import hashlib
 import logging
 import re
 from datetime import UTC, datetime, timedelta
+from time import perf_counter
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import and_, or_, select, update
 
 from .config import Settings
@@ -26,17 +27,40 @@ from .db import (
 )
 from .domain import (
     Action,
+    AnalysisAttempt,
+    AnalysisResult,
+    AnalysisStep,
     CaseInput,
     EvidenceUpdate,
     EvidenceVerificationInput,
+    ExtractionInput,
+    ExtractionOutput,
+    GovernanceControls,
+    GovernanceInput,
+    GovernanceOutput,
+    GovernanceResult,
     PolicyDocument,
+    PolicyRetrievalInput,
+    PolicyRetrievalOutput,
+    ReasoningInput,
+    ReasoningOutput,
     ReviewInput,
+    VerificationInput,
+    VerificationOutput,
 )
 from .governance import evaluate
-from .llm import ExtractionError, build_extractor, validate_grounding
+from .llm import ExtractionError, build_extractor
 from .paypal import PayPalClient, PayPalError, normalized_case, validate_action_payload
 from .policy import PolicyCatalog
 from .reasoning import solve
+from .verification import (
+    VerificationError,
+    contract_hash,
+    verify_governance,
+    verify_knowledge,
+    verify_reasoning,
+    verify_retrieval,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,77 +91,340 @@ def digest(value: Any) -> str:
     return hashlib.sha256(canonical(value).encode()).hexdigest()
 
 
-async def analyze(case: CaseInput, catalog: PolicyCatalog, extractor, settings: Settings) -> dict:
-    retrieval = await catalog.retrieve(case, extractor)
+class AnalysisFailure(RuntimeError):
+    """Safe failure with independently validated stage evidence for persistence."""
+
+    def __init__(self, result: AnalysisResult):
+        self.result = result
+        super().__init__("A component failed its validated analysis contract")
+
+
+class AnalysisCancelled(asyncio.CancelledError):
+    def __init__(self, result: AnalysisResult):
+        self.result = result
+        super().__init__("Analysis stage was cancelled or timed out")
+
+
+class _StageFailure(ValueError):
+    def __init__(self, code: str, message: str):
+        self.code = code
+        super().__init__(message)
+
+
+def _boundary_output(value, model, payload_field):
+    # Never trust BaseModel instances: producers can mutate or model_construct them.
+    raw = value.model_dump(mode="json", warnings=False) if isinstance(value, BaseModel) else value
+    if not isinstance(raw, dict) or payload_field not in raw:
+        raw = {payload_field: raw}
+    return model.model_validate(raw)
+
+
+def _held_result(retrieval, attempts, trace, *, knowledge=None, solver=None) -> AnalysisResult:
+    return AnalysisResult(
+        retrieval=retrieval,
+        knowledge_base=knowledge,
+        solver=solver,
+        governance=GovernanceResult(
+            recommended_action=None,
+            confidence=0,
+            requires_human=True,
+            reasons=["Grounded extraction or component contract verification failed"],
+            components={},
+        ),
+        attempts=attempts,
+        agents=["stair", "extractor", "independent_verifier", "governance"],
+        stage_trace=trace,
+    )
+
+
+async def _stage(
+    request,
+    operation,
+    output_model,
+    payload_field,
+    trace,
+    *,
+    attempt=0,
+    mode="deterministic",
+    verifier=None,
+):
+    started_at, started = now(), perf_counter()
+    input_hash = contract_hash(request)
+    output = None
+    failure = None
+    try:
+        raw = await operation()
+        output = _boundary_output(raw, output_model, payload_field)
+        if verifier:
+            verifier(output)
+    except asyncio.CancelledError:
+        failure = _StageFailure("stage_timeout", "Analysis stage was cancelled or timed out")
+        raise
+    except Exception as exc:
+        if isinstance(exc, VerificationError):
+            failure = _StageFailure(exc.code, str(exc))
+        elif isinstance(exc, ValidationError):
+            failure = _StageFailure(
+                "invalid_contract", "Producer output failed its versioned schema contract"
+            )
+        elif isinstance(exc, ExtractionError):
+            failure = _StageFailure(
+                "extraction_failed",
+                "Extractor failed to return a valid source-grounded knowledge base",
+            )
+        else:
+            failure = _StageFailure(
+                "component_failed", "Component failed; inspect provider or policy configuration"
+            )
+        # Do not retain upstream/validation payloads in exception chains or logs.
+        raise failure from None
+    finally:
+        trace.append(
+            AnalysisStep(
+                component=request.component,
+                mode=mode,
+                attempt=attempt,
+                status="rejected"
+                if failure and request.component in {"extraction", "verification"}
+                else "failed"
+                if failure
+                else "succeeded",
+                decision="reject" if failure else "continue",
+                started_at=started_at,
+                finished_at=now(),
+                duration_ms=(perf_counter() - started) * 1000,
+                input_sha256=input_hash,
+                output_sha256=contract_hash(output) if output and not failure else None,
+                error_code=failure.code if failure else None,
+                diagnostics=[str(failure)] if failure else [],
+                input_ref="run.input_snapshot+immutable_policy+result.attempts",
+                output_ref=(
+                    "result.retrieval"
+                    if request.component == "policy_retrieval"
+                    else f"result.attempts[{attempt}].knowledge_base"
+                    if request.component == "extraction"
+                    else "stage.verification"
+                    if request.component == "verification"
+                    else f"result.attempts[{attempt}].solver_or_result_solver"
+                    if request.component == "asp_reasoning"
+                    else "result.governance"
+                )
+                if not failure
+                else None,
+                verification=output.verification
+                if output and not failure and request.component == "verification"
+                else None,
+                max_clauses=request.max_clauses
+                if request.component == "policy_retrieval"
+                else None,
+                max_models=request.max_models if request.component == "asp_reasoning" else None,
+                timeout_seconds=request.timeout_seconds
+                if request.component == "asp_reasoning"
+                else None,
+                governance_controls=request.controls if request.component == "governance" else None,
+            )
+        )
+    return output
+
+
+async def analyze(
+    case: CaseInput, catalog: PolicyCatalog, extractor, settings: Settings, *, stage_trace=None
+) -> dict:
+    trace: list[AnalysisStep] = stage_trace if stage_trace is not None else []
+    attempts: list[AnalysisAttempt] = []
+    retrieval = None
     previous = None
     diagnostics = None
-    attempts: list[dict] = []
-    for index in range(settings.max_repair_attempts + 1):
-        try:
-            knowledge = await extractor.extract(
-                case, retrieval, previous=previous, diagnostics=diagnostics
-            )
-            validate_grounding(knowledge, case, retrieval)
-            if previous:
-                verified_ids = {e.id for e in case.evidence if e.verified}
-                required = {
-                    f.literal.key()
-                    for f in previous.facts
-                    if f.evidence_ids and set(f.evidence_ids) <= verified_ids
-                }
-                current = {f.literal.key() for f in knowledge.facts}
-                if not required <= current:
-                    raise ExtractionError("Correction removed a fact backed by verified evidence")
-        except ExtractionError as exc:
-            diagnostics = [str(exc)]
+    active_knowledge = None
+    extracted_knowledge = None
+    active_solver = None
+    index = 0
+
+    def failure_result():
+        if extracted_knowledge is not None and not any(item.attempt == index for item in attempts):
             attempts.append(
-                {"attempt": index, "status": "invalid_extraction", "diagnostics": diagnostics}
+                AnalysisAttempt(
+                    attempt=index,
+                    status="component_failed",
+                    knowledge_base=extracted_knowledge,
+                    decision="reject",
+                )
             )
-            if index == settings.max_repair_attempts:
-                return {
-                    "retrieval": retrieval.model_dump(mode="json"),
-                    "attempts": attempts,
-                    "knowledge_base": None,
-                    "solver": None,
-                    "governance": {
-                        "recommended_action": None,
-                        "confidence": 0,
-                        "requires_human": True,
-                        "reasons": ["Grounded extraction failed"],
-                        "components": {},
-                    },
-                    "agents": ["stair", "extractor", "self_correction", "governance"],
-                }
-            continue
-        result = await asyncio.to_thread(
-            solve,
-            knowledge,
-            max_models=settings.solver_max_models,
-            timeout_seconds=settings.solver_timeout_seconds,
+        return _held_result(
+            retrieval, attempts, trace, knowledge=active_knowledge, solver=active_solver
         )
-        attempts.append(
-            {
-                "attempt": index,
-                "status": result.status,
-                "knowledge_base": knowledge.model_dump(mode="json"),
-                "program_sha256": result.program_sha256,
-                "diagnostics": result.diagnostics,
-            }
+
+    mode = "deterministic" if getattr(extractor, "provider", None) == "demo" else "probabilistic"
+    try:
+        case = CaseInput.model_validate(case.model_dump(mode="json"))
+        request = PolicyRetrievalInput(
+            case=case, policy=catalog.get(case.policy_id), max_clauses=catalog.max_clauses
         )
-        if result.status != "inconsistent" or index == settings.max_repair_attempts:
-            governance = evaluate(case, knowledge, retrieval, result, settings)
-            return {
-                "retrieval": retrieval.model_dump(mode="json"),
-                "knowledge_base": knowledge.model_dump(mode="json"),
-                "solver": result.model_dump(mode="json"),
-                "governance": governance.model_dump(mode="json"),
-                "attempts": attempts,
-                "agents": ["stair", "extractor", "asp_compiler", "clingo", "governance"],
-            }
-        previous = knowledge
-        diagnostics = result.diagnostics or [
-            "No stable model: examine contradictory facts and rules. Do not discard verified facts."
-        ]
+        output = await _stage(
+            request,
+            lambda: catalog.retrieve(request.case.model_copy(deep=True), extractor),
+            PolicyRetrievalOutput,
+            "retrieval",
+            trace,
+            mode=mode,
+            verifier=lambda value: verify_retrieval(value.retrieval, request.policy),
+        )
+        retrieval = output.retrieval
+        for index in range(settings.max_repair_attempts + 1):
+            knowledge = None
+            extracted_knowledge = None
+            try:
+                request = ExtractionInput(
+                    case=case, retrieval=retrieval, previous=previous, diagnostics=diagnostics or []
+                )
+                safe_input = request.model_copy(deep=True)
+                output = await _stage(
+                    request,
+                    lambda safe_input=safe_input: extractor.extract(
+                        safe_input.case,
+                        safe_input.retrieval,
+                        previous=safe_input.previous,
+                        diagnostics=safe_input.diagnostics or None,
+                    ),
+                    ExtractionOutput,
+                    "knowledge_base",
+                    trace,
+                    attempt=index,
+                    mode=mode,
+                )
+                knowledge = output.knowledge_base
+                extracted_knowledge = knowledge
+                verification = VerificationInput(
+                    case=case, retrieval=retrieval, knowledge_base=knowledge, previous=previous
+                )
+
+                async def verify(verification=verification):
+                    return verify_knowledge(verification)
+
+                await _stage(
+                    verification, verify, VerificationOutput, "verification", trace, attempt=index
+                )
+                active_knowledge = knowledge
+            except _StageFailure as exc:
+                diagnostics = [str(exc)]
+                decision = "reject" if index == settings.max_repair_attempts else "repair"
+                trace[-1].decision = decision
+                attempts.append(
+                    AnalysisAttempt(
+                        attempt=index,
+                        status="invalid_extraction",
+                        knowledge_base=knowledge,
+                        diagnostics=diagnostics,
+                        decision=decision,
+                    )
+                )
+                if index == settings.max_repair_attempts:
+                    return _held_result(retrieval, attempts, trace).model_dump(mode="json")
+                continue
+            request = ReasoningInput(
+                knowledge_base=knowledge,
+                authoritative_vocabulary=retrieval.authoritative_vocabulary,
+                max_models=settings.solver_max_models,
+                timeout_seconds=settings.solver_timeout_seconds,
+            )
+            output = await _stage(
+                request,
+                lambda request=request: asyncio.to_thread(
+                    solve,
+                    request.knowledge_base.model_copy(deep=True),
+                    max_models=request.max_models,
+                    timeout_seconds=request.timeout_seconds,
+                    authoritative_vocabulary=request.authoritative_vocabulary,
+                ),
+                ReasoningOutput,
+                "solver",
+                trace,
+                attempt=index,
+                verifier=lambda value, request=request: verify_reasoning(request, value.solver),
+            )
+            result = output.solver
+            active_solver = result
+            decision = (
+                "repair"
+                if result.status == "inconsistent" and index < settings.max_repair_attempts
+                else "return"
+            )
+            trace[-1].decision = decision
+            attempts.append(
+                AnalysisAttempt(
+                    attempt=index,
+                    status=result.status,
+                    knowledge_base=knowledge,
+                    program_sha256=result.program_sha256,
+                    solver=result if decision == "repair" else None,
+                    diagnostics=result.diagnostics,
+                    decision=decision,
+                )
+            )
+            if decision == "return":
+                request = GovernanceInput(
+                    case=case,
+                    knowledge_base=knowledge,
+                    retrieval=retrieval,
+                    solver=result,
+                    controls=GovernanceControls(
+                        auto_confidence_threshold=settings.auto_confidence_threshold,
+                        auto_max_amount=settings.auto_max_amount,
+                        auto_currency=settings.auto_currency,
+                    ),
+                )
+
+                async def govern(request=request):
+                    safe = request.model_copy(deep=True)
+                    controls = settings.model_copy(update=safe.controls.model_dump())
+                    return evaluate(
+                        safe.case,
+                        safe.knowledge_base,
+                        safe.retrieval,
+                        safe.solver,
+                        controls,
+                    )
+
+                output = await _stage(
+                    request,
+                    govern,
+                    GovernanceOutput,
+                    "governance",
+                    trace,
+                    attempt=index,
+                    verifier=lambda value, request=request: verify_governance(
+                        request, value.governance
+                    ),
+                )
+                trace[-1].decision = (
+                    "human_review" if output.governance.requires_human else "eligible_for_execution"
+                )
+                return AnalysisResult(
+                    retrieval=retrieval,
+                    knowledge_base=knowledge,
+                    solver=result,
+                    governance=output.governance,
+                    attempts=attempts,
+                    agents=[
+                        "stair",
+                        "extractor",
+                        "independent_verifier",
+                        "asp_compiler",
+                        "clingo",
+                        "governance",
+                    ],
+                    stage_trace=trace,
+                ).model_dump(mode="json")
+            previous = knowledge
+            diagnostics = result.diagnostics or [
+                "No stable model: examine contradictory facts and rules. Do not discard verified facts."
+            ]
+    except asyncio.CancelledError:
+        raise AnalysisCancelled(failure_result()) from None
+    except AnalysisFailure:
+        raise
+    except Exception:
+        raise AnalysisFailure(failure_result()) from None
     raise RuntimeError("Unreachable analysis state")
 
 
@@ -176,7 +463,12 @@ class Coordinator:
         with self.db.sessions.begin() as session:
             existing = session.get(PolicyRecord, document.id)
             if existing:
-                if existing.sha256 != digest(data):
+                if existing.sha256 != digest(existing.document):
+                    raise ServiceError(503, "Stored policy integrity check failed")
+                normalized = PolicyDocument.model_validate(existing.document).model_dump(
+                    mode="json"
+                )
+                if digest(normalized) != digest(data):
                     raise ServiceError(
                         409, "Policy ID already identifies different immutable content"
                     )
@@ -243,9 +535,7 @@ class Coordinator:
             self._mutable(case)
             data = CaseInput.model_validate(case.data)
             evidence = {e.id: e for e in data.evidence}
-            if case.origin == "paypal" and any(
-                e.id.startswith("paypal_") for e in changes.evidence
-            ):
+            if case.origin == "paypal" and any(e.id == "paypal_snapshot" for e in changes.evidence):
                 raise ServiceError(
                     422, "Imported PayPal evidence can only be refreshed from PayPal"
                 )
@@ -391,13 +681,14 @@ class Coordinator:
                 return True
             data = CaseInput.model_validate(run.input_snapshot)
             audit(session, case, "analysis_started", {"run_id": run_id})
+        stage_trace: list[AnalysisStep] = []
         try:
             self.reload_policies()
             result = await asyncio.wait_for(
-                analyze(data, self.catalog, self.extractor, self.settings),
+                analyze(data, self.catalog, self.extractor, self.settings, stage_trace=stage_trace),
                 timeout=self.settings.analysis_timeout_seconds,
             )
-        except Exception:
+        except Exception as exc:
             logger.exception("Analysis failed for run %s", run_id)
             with self.db.sessions.begin() as session:
                 run = self._run(session, run_id, lock=True)
@@ -408,9 +699,19 @@ class Coordinator:
                         "Analysis failed; inspect server logs and policy/provider configuration"
                     )
                     run.finished_at = now()
+                    failure = getattr(exc, "result", None) or getattr(exc.__cause__, "result", None)
+                    if not isinstance(failure, AnalysisResult):
+                        failure = _held_result(None, [], stage_trace)
+                    run.result = failure.model_dump(mode="json")
                     if case.latest_run_id == run.id:
                         case.status = "review_required"
-                    audit(session, case, "analysis_failed", {"run_id": run_id, "error": run.error})
+                    self._audit_stages(session, case, run_id, run.result)
+                    audit(
+                        session,
+                        case,
+                        "analysis_failed",
+                        {"run_id": run_id, "error": run.error, "result_sha256": digest(run.result)},
+                    )
             return True
         with self.db.sessions.begin() as session:
             run = self._run(session, run_id, lock=True)
@@ -425,6 +726,7 @@ class Coordinator:
                 case.status = (
                     "review_required" if result["governance"]["requires_human"] else "ready"
                 )
+            self._audit_stages(session, case, run_id, result)
             audit(
                 session,
                 case,
@@ -456,6 +758,17 @@ class Coordinator:
                         case.status = "review_required"
                         audit(session, case, "automatic_execution_deferred", {"run_id": run_id})
         return True
+
+    @staticmethod
+    def _audit_stages(session, case, run_id, result):
+        for index, step in enumerate(result.get("stage_trace", [])):
+            audit(
+                session,
+                case,
+                "analysis_stage",
+                {"run_id": run_id, "step_index": index, "step": step},
+                "orchestrator",
+            )
 
     def review(self, run_id: str, data: ReviewInput) -> dict:
         with self.db.sessions.begin() as session:
@@ -738,7 +1051,7 @@ class Coordinator:
                 )
                 if previous_snapshot and incoming.evidence[0].content == previous_snapshot.content:
                     incoming.evidence[0].verified = previous_snapshot.verified
-                operator_evidence = [e for e in old.evidence if not e.id.startswith("paypal_")]
+                operator_evidence = [e for e in old.evidence if e.id != "paypal_snapshot"]
                 incoming.evidence.extend(operator_evidence)
                 incoming.auto_execute = auto_execute
                 new_data = incoming.model_dump(mode="json")

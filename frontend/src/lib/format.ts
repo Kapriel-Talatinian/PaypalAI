@@ -26,8 +26,7 @@ export function money(value: string | number, currency = 'USD', compact = false)
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
-    maximumFractionDigits: compact ? 0 : 2,
-    minimumFractionDigits: compact ? 0 : 2,
+    ...(compact ? { maximumFractionDigits: 0, minimumFractionDigits: 0 } : {}),
   }).format(Number(value));
 }
 

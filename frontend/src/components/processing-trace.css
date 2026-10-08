@@ -1,0 +1,28 @@
+.processing-trace {
+  margin: 18px 0;
+  border-top: 1px solid #ebeff5;
+  padding-top: 14px;
+  font-size: 13px;
+}
+.processing-trace summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.processing-trace ol {
+  display: grid;
+  gap: 14px;
+  padding-left: 20px;
+}
+.processing-trace strong,
+.processing-trace span,
+.processing-trace small {
+  display: block;
+  margin-bottom: 3px;
+}
+.processing-trace span,
+.processing-trace small {
+  color: #696969;
+}
+.processing-trace p {
+  overflow-wrap: anywhere;
+}

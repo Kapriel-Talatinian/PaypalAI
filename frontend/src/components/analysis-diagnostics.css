@@ -1,0 +1,40 @@
+.analysis-diagnostics {
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid #ded6bd;
+  border-radius: 8px;
+  background: #fffaf0;
+  font-size: 13px;
+}
+.analysis-diagnostics h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.analysis-diagnostics ul {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.analysis-diagnostics p {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.analysis-diagnostics strong,
+.analysis-diagnostics summary {
+  font-weight: 500;
+}
+.analysis-diagnostics small {
+  color: #696969;
+  overflow-wrap: anywhere;
+}
+.analysis-diagnostics details:not(:first-child) {
+  margin-top: 12px;
+}
+.analysis-diagnostics summary {
+  cursor: pointer;
+}
+.analysis-diagnostics [data-severity='error'] strong {
+  color: #9c2525;
+}

@@ -14,7 +14,6 @@ import type {
   AuditTrail,
   CaseDisplay,
   CaseInput,
-  CaseView,
   Connection,
   Evidence,
   ExecutionView,
@@ -38,6 +37,7 @@ import {
   verifyDemoAudit,
 } from '../data/demo';
 import { DisputeApi } from './api';
+import { normalizeCase } from './cases';
 
 export interface Workspace {
   cases: WorkspaceCase[];
@@ -79,29 +79,6 @@ const DEMO_CONNECTION: Connection = {
 const EMPTY_METRICS: Metrics = { cases: {}, runs: {}, executions: {}, webhooks: {} };
 const pause = (duration: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, duration));
-
-function normalizeCase(item: CaseView, previous?: WorkspaceCase): WorkspaceCase {
-  const reason = item.data.reason.replaceAll('_', ' ');
-  return {
-    ...item,
-    latest_run: item.latest_run ?? null,
-    display: previous?.display ?? {
-      customer: 'Customer not supplied',
-      email: 'Not supplied by the API',
-      initials: 'CU',
-      product: item.origin === 'paypal' ? 'Imported PayPal dispute' : 'Manual dispute',
-      orderId: 'Not supplied',
-      category: reason.charAt(0).toUpperCase() + reason.slice(1),
-      channel: item.origin === 'paypal' ? 'PayPal' : 'Manual import',
-      dueAt: null,
-      scenario: item.data.summary,
-    },
-    audit: previous?.audit ?? { events: [], head: '0'.repeat(64), verified: false },
-    review: item.latest_run_id === previous?.latest_run_id ? (previous?.review ?? null) : null,
-    execution:
-      item.latest_run_id === previous?.latest_run_id ? (previous?.execution ?? null) : null,
-  };
-}
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [cases, setCases] = useState<WorkspaceCase[]>([]);
@@ -251,7 +228,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           const next = queue.shift();
           if (!next) return;
           const detail = await api.case(next.id);
-          next.latest_run = detail.latest_run ?? null;
+          Object.assign(next, normalizeCase(detail, next));
           if (next.latest_run_id) {
             const [review, executions] = await Promise.all([
               api.runReview(next.latest_run_id),

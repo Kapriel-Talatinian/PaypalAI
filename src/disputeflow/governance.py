@@ -53,6 +53,8 @@ def evaluate(
         reasons.append("Operational confidence is below the automatic execution threshold")
     if kb.warnings:
         reasons.append("Extraction warnings require human review")
+    if any(detail.severity in {"warning", "error"} for detail in solver.diagnostic_details):
+        reasons.append("Solver diagnostic warnings or errors require human review")
     if (
         case.amount > Decimal(str(settings.auto_max_amount))
         or case.currency != settings.auto_currency

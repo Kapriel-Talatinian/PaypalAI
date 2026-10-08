@@ -236,12 +236,15 @@ async def test_complete_analysis_persists_solver_governance_and_audit(
         record = session.get(CaseRecord, case["id"])
         entries = audit_entries(session, case["id"])
         assert verify_chain(entries, record.audit_hash, record.audit_seq)
-        assert [entry["kind"] for entry in entries] == [
+        assert [entry["kind"] for entry in entries if entry["kind"] != "analysis_stage"] == [
             "case_created",
             "analysis_queued",
             "analysis_started",
             "analysis_completed",
         ]
+        assert [
+            entry["data"]["step"] for entry in entries if entry["kind"] == "analysis_stage"
+        ] == run.result["stage_trace"]
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "verified_at": "2026-10-07T18:22:14.955687+00:00",
+  "verified_at": "2026-10-08T22:23:41.797237+00:00",
   "scope": "Synthetic policy mechanics through actual FastAPI routes, durable worker, and isolated clingo solver",
   "execution_environment": {
     "database": "isolated temporary SQLite, deleted after verification",
@@ -16,8 +16,8 @@
   },
   "scenarios": {
     "verified_delivery": {
-      "run_id": "e32984cb-fa16-4cbe-a3ca-e04ca9103f82",
-      "case_id": "2a6b8648-f313-4816-bce1-ab36145fee37",
+      "run_id": "cf326b25-7dc0-4e5f-a0b7-83f4c193c089",
+      "case_id": "7fb983de-2550-47ad-a1e8-fe2e6d5cbbee",
       "case_version": 1,
       "status": "completed",
       "solver_status": "unique",
@@ -31,6 +31,7 @@
       "requires_human": true,
       "governance_reasons": [
         "Extraction warnings require human review",
+        "Solver diagnostic warnings or errors require human review",
         "Synthetic policy is limited to demo and dry-run execution"
       ],
       "fact_literals": [
@@ -41,28 +42,33 @@
       "program_sha256": "73891216db0e859ea6515727ef8c71ca6315ce335a07e6b87c66df5fc733ac84",
       "program_hash_verified": true,
       "grounding_verified": true,
-      "proof_nodes": 31,
-      "proof_edges": 41,
+      "proof_nodes": 34,
+      "proof_edges": 48,
       "audit": {
         "verified": true,
         "independently_verified": true,
         "tampering_detected": true,
-        "event_count": 7,
+        "event_count": 12,
         "event_kinds": [
           "case_created",
           "analysis_queued",
           "analysis_started",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
           "analysis_completed",
           "human_review",
           "execution_intent",
           "execution_succeeded"
         ],
-        "chain_head": "94e50c78298b7ace2f159aec6d406e2f0709f695c00d583d19857bce4dc434ef"
+        "chain_head": "2857eb803670fb5096775885657a9653224bf02d95f051a789fa8201b842822e"
       }
     },
     "nonmonotonic_tracking_correction": {
-      "run_id": "70b9ed5d-21ba-4306-b55d-401809b1d5fb",
-      "case_id": "2a6b8648-f313-4816-bce1-ab36145fee37",
+      "run_id": "32281b37-07fc-4561-a3ac-ced66643e8bc",
+      "case_id": "7fb983de-2550-47ad-a1e8-fe2e6d5cbbee",
       "case_version": 2,
       "status": "completed",
       "solver_status": "unique",
@@ -87,8 +93,8 @@
       "program_sha256": "1bd7e21560b81966ba266cbbfa70ec4a0c69dd1c12863bf6debfa86e9800314a",
       "program_hash_verified": true,
       "grounding_verified": true,
-      "proof_nodes": 32,
-      "proof_edges": 40,
+      "proof_nodes": 33,
+      "proof_edges": 41,
       "previous_action": "provide_evidence",
       "stale_review": {
         "http_status": 409,
@@ -103,11 +109,16 @@
         "verified": true,
         "independently_verified": true,
         "tampering_detected": true,
-        "event_count": 11,
+        "event_count": 21,
         "event_kinds": [
           "case_created",
           "analysis_queued",
           "analysis_started",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
           "analysis_completed",
           "human_review",
           "execution_intent",
@@ -115,14 +126,19 @@
           "evidence_updated",
           "analysis_queued",
           "analysis_started",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
           "analysis_completed"
         ],
-        "chain_head": "4eef54f89e4af4517a9782fee8c2bcc970e25e94da0c93f61709850b0ff5490f"
+        "chain_head": "56e000a0182f0e3d39f19d53b91a3e66a31e5d4b288baf0d65dadcb3b1546360"
       }
     },
     "legitimate_item_mismatch": {
-      "run_id": "e8a6e8ca-ae3d-46e7-852c-ea926085debc",
-      "case_id": "3dbf8173-a7d1-4975-98d4-5a8ae9d6a6e1",
+      "run_id": "a5110795-aedb-47d1-885d-6990c1db9703",
+      "case_id": "d205e0f3-ba07-4861-a8e2-d9d1a80366d7",
       "case_version": 1,
       "status": "completed",
       "solver_status": "unique",
@@ -136,6 +152,7 @@
       "requires_human": true,
       "governance_reasons": [
         "Extraction warnings require human review",
+        "Solver diagnostic warnings or errors require human review",
         "Synthetic policy is limited to demo and dry-run execution"
       ],
       "fact_literals": [
@@ -145,25 +162,30 @@
       "program_sha256": "6c369a4906960a49f8b9f930ee9d95de1cd2a22551ac5247fdbdeb58a8cfe34a",
       "program_hash_verified": true,
       "grounding_verified": true,
-      "proof_nodes": 19,
-      "proof_edges": 18,
+      "proof_nodes": 24,
+      "proof_edges": 31,
       "audit": {
         "verified": true,
         "independently_verified": true,
         "tampering_detected": true,
-        "event_count": 4,
+        "event_count": 9,
         "event_kinds": [
           "case_created",
           "analysis_queued",
           "analysis_started",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
           "analysis_completed"
         ],
-        "chain_head": "d10e51780b96a5a1cc7fa9fe9e9ca40a1db898fb91deb3a42f7aba3fde45a1d9"
+        "chain_head": "fa0e86d311da9d22126c721fc542999d253c04960553496f0dc4cbb6cb5f2eee"
       }
     },
     "competing_rules": {
-      "run_id": "cd2f85f4-b448-4f5e-b58c-0cc3c1431afd",
-      "case_id": "deee1a47-9aea-427c-8324-0d1b28047401",
+      "run_id": "57532513-1fdd-4252-b33a-55ccd8518819",
+      "case_id": "894d8c6b-9511-4939-ac96-a3885d87a7b2",
       "case_version": 1,
       "status": "completed",
       "solver_status": "multiple",
@@ -193,8 +215,8 @@
       "program_sha256": "24576baa32822c742950ba16e177a65c0550de913d916199a2768a6483104cf9",
       "program_hash_verified": true,
       "grounding_verified": true,
-      "proof_nodes": 26,
-      "proof_edges": 40,
+      "proof_nodes": 27,
+      "proof_edges": 41,
       "execution_gate": {
         "http_status": 409,
         "detail": "A reviewer must approve this decision before execution"
@@ -203,19 +225,24 @@
         "verified": true,
         "independently_verified": true,
         "tampering_detected": true,
-        "event_count": 4,
+        "event_count": 9,
         "event_kinds": [
           "case_created",
           "analysis_queued",
           "analysis_started",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
           "analysis_completed"
         ],
-        "chain_head": "415452ae242135a7d0a962146612345f52baefda69f973a682a8725e6e3bc4c8"
+        "chain_head": "650d4612576f126ded8a35d7ee5de26972dbda372b12ad0e2cbd8844fcd2a321"
       }
     },
     "contradictory_verified_facts": {
-      "run_id": "0b59157a-6fd6-4a13-bbdd-915eb8977e47",
-      "case_id": "6bf7052a-1833-41da-b526-447fef83aca1",
+      "run_id": "0ead00d8-d460-48db-8be9-2698f562c7b6",
+      "case_id": "e8ff507a-fb30-4cf9-be03-80867de3cbe0",
       "case_version": 1,
       "status": "completed",
       "solver_status": "inconsistent",
@@ -228,6 +255,7 @@
         "No unambiguous executable merchant action",
         "Operational confidence is below the automatic execution threshold",
         "Extraction warnings require human review",
+        "Solver diagnostic warnings or errors require human review",
         "Synthetic policy is limited to demo and dry-run execution"
       ],
       "fact_literals": [
@@ -239,8 +267,8 @@
       "program_sha256": "220500f6d17cca240efe0ab54ea227472da6b240841f340ae7a8e1c678c235e9",
       "program_hash_verified": true,
       "grounding_verified": true,
-      "proof_nodes": 29,
-      "proof_edges": 29,
+      "proof_nodes": 34,
+      "proof_edges": 38,
       "verified_facts_retained_in_all_attempts": true,
       "execution_gate": {
         "http_status": 409,
@@ -250,19 +278,30 @@
         "verified": true,
         "independently_verified": true,
         "tampering_detected": true,
-        "event_count": 4,
+        "event_count": 15,
         "event_kinds": [
           "case_created",
           "analysis_queued",
           "analysis_started",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
           "analysis_completed"
         ],
-        "chain_head": "5b92db5e1832731f3b111e3c7dd69d92d9da963a6f34c4e7643742ad9c91179a"
+        "chain_head": "fb2f4a6fdea8e944de948ffd446116f0bae21b31ee2f7c0733e8293b4406a16e"
       }
     },
     "unverified_tracking": {
-      "run_id": "785165fa-3ca6-410f-ad96-eef440817862",
-      "case_id": "2139dd45-3729-4169-be53-0175254ed76a",
+      "run_id": "b704c513-a330-4284-ad68-3516430a25f9",
+      "case_id": "1ea890d1-711e-469f-a68f-04ab02170866",
       "case_version": 1,
       "status": "completed",
       "solver_status": "unique",
@@ -276,6 +315,7 @@
       "requires_human": true,
       "governance_reasons": [
         "Extraction warnings require human review",
+        "Solver diagnostic warnings or errors require human review",
         "Synthetic policy is limited to demo and dry-run execution"
       ],
       "fact_literals": [
@@ -285,21 +325,26 @@
       "program_sha256": "bc0dff2a8820b90ee64685ed474a58942bd8ad121fe563c1d7c39287e102b25f",
       "program_hash_verified": true,
       "grounding_verified": true,
-      "proof_nodes": 27,
-      "proof_edges": 30,
+      "proof_nodes": 34,
+      "proof_edges": 49,
       "unverified_tracking_promoted": false,
       "audit": {
         "verified": true,
         "independently_verified": true,
         "tampering_detected": true,
-        "event_count": 4,
+        "event_count": 9,
         "event_kinds": [
           "case_created",
           "analysis_queued",
           "analysis_started",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
+          "analysis_stage",
           "analysis_completed"
         ],
-        "chain_head": "f7851d8cd8c263f045ba395da4ef3550abc0508bbde72887e2c5e39381823b3e"
+        "chain_head": "192bfd2342c86128e4b820261edd396951ab1b5a1272ee0d92825a3e4e91b460"
       }
     }
   },
@@ -310,11 +355,11 @@
     },
     "service_key_cannot_review": 403,
     "reviewed_action": "provide_evidence",
-    "execution_id": "d219cadc-a2d8-4254-9bd5-cec6c1730d5c",
+    "execution_id": "2fd41736-1270-4d64-905e-df3588b4ee56",
     "execution_mode": "dry_run",
     "execution_status": "succeeded",
     "explicit_payload_preserved": true,
-    "idempotent_retry_execution_id": "d219cadc-a2d8-4254-9bd5-cec6c1730d5c",
+    "idempotent_retry_execution_id": "2fd41736-1270-4d64-905e-df3588b4ee56",
     "journal_count_after_retry": 1,
     "changed_payload_same_key_http_status": 409,
     "case_status_after_dry_run": "reviewed",

@@ -1757,10 +1757,106 @@
         ],
         "title": "Action"
       },
+      "AnalysisAttempt": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version",
+            "default": "1.0"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempt"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "invalid_extraction",
+              "unique",
+              "multiple",
+              "inconsistent",
+              "truncated",
+              "timeout",
+              "component_failed"
+            ],
+            "title": "Status"
+          },
+          "knowledge_base": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeBase"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "program_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Program Sha256"
+          },
+          "solver": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SolverResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Diagnostics"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "return",
+              "repair",
+              "reject"
+            ],
+            "title": "Decision",
+            "default": "return"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "attempt",
+          "status"
+        ],
+        "title": "AnalysisAttempt"
+      },
       "AnalysisResult": {
         "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version",
+            "default": "1.0"
+          },
           "retrieval": {
-            "$ref": "#/components/schemas/RetrievalResult"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetrievalResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "knowledge_base": {
             "anyOf": [
@@ -1787,8 +1883,7 @@
           },
           "attempts": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/AnalysisAttempt"
             },
             "type": "array",
             "title": "Attempts"
@@ -1799,6 +1894,13 @@
             },
             "type": "array",
             "title": "Agents"
+          },
+          "stage_trace": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisStep"
+            },
+            "type": "array",
+            "title": "Stage Trace"
           }
         },
         "additionalProperties": false,
@@ -1812,6 +1914,184 @@
           "agents"
         ],
         "title": "AnalysisResult"
+      },
+      "AnalysisStep": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version",
+            "default": "1.0"
+          },
+          "component": {
+            "type": "string",
+            "enum": [
+              "policy_retrieval",
+              "extraction",
+              "verification",
+              "asp_reasoning",
+              "governance"
+            ],
+            "title": "Component"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "deterministic",
+              "probabilistic"
+            ],
+            "title": "Mode"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempt",
+            "default": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "rejected",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Finished At"
+          },
+          "duration_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Duration Ms"
+          },
+          "input_sha256": {
+            "type": "string",
+            "title": "Input Sha256"
+          },
+          "output_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Sha256"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Diagnostics"
+          },
+          "input_ref": {
+            "type": "string",
+            "title": "Input Ref"
+          },
+          "output_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Ref"
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerificationResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_clauses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Clauses"
+          },
+          "max_models": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Models"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds"
+          },
+          "governance_controls": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GovernanceControls"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "component",
+          "mode",
+          "status",
+          "decision",
+          "started_at",
+          "finished_at",
+          "duration_ms",
+          "input_sha256",
+          "input_ref"
+        ],
+        "title": "AnalysisStep"
       },
       "CaseInput-Input": {
         "properties": {
@@ -1841,7 +2121,7 @@
               },
               {
                 "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,14}|(?=[\\d.]{1,17}0*$)\\d{0,14}\\.\\d{0,2}0*$)"
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,13}|(?=[\\d.]{1,17}0*$)\\d{0,13}\\.\\d{0,3}0*$)"
               }
             ],
             "title": "Amount"
@@ -1883,6 +2163,16 @@
             },
             "type": "array",
             "title": "Allowed Actions"
+          },
+          "paypal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalDisputeMetadata-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -1916,7 +2206,7 @@
           },
           "amount": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,14}|(?=[\\d.]{1,17}0*$)\\d{0,14}\\.\\d{0,2}0*$)",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,13}|(?=[\\d.]{1,17}0*$)\\d{0,13}\\.\\d{0,3}0*$)",
             "title": "Amount"
           },
           "currency": {
@@ -1956,6 +2246,16 @@
             },
             "type": "array",
             "title": "Allowed Actions"
+          },
+          "paypal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalDisputeMetadata-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -2375,6 +2675,34 @@
         ],
         "title": "Fact"
       },
+      "GovernanceControls": {
+        "properties": {
+          "auto_confidence_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Auto Confidence Threshold"
+          },
+          "auto_max_amount": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Auto Max Amount"
+          },
+          "auto_currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Auto Currency"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "auto_confidence_threshold",
+          "auto_max_amount",
+          "auto_currency"
+        ],
+        "title": "GovernanceControls"
+      },
       "GovernanceResult": {
         "properties": {
           "recommended_action": {
@@ -2520,6 +2848,1758 @@
         ],
         "title": "Literal"
       },
+      "PayPalDelivery": {
+        "properties": {
+          "source_path": {
+            "type": "string",
+            "title": "Source Path"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "product_received": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Received"
+          },
+          "product_received_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Received Time"
+          },
+          "expected_delivery_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Delivery Date"
+          },
+          "return_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Time"
+          },
+          "return_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Mode"
+          },
+          "return_receipt": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Receipt"
+          },
+          "returned": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Returned"
+          },
+          "return_confirmation_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Confirmation Number"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_path"
+        ],
+        "title": "PayPalDelivery"
+      },
+      "PayPalDisputeMetadata-Input": {
+        "properties": {
+          "dispute_id": {
+            "type": "string",
+            "title": "Dispute Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "dispute_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispute State"
+          },
+          "dispute_life_cycle_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispute Life Cycle Stage"
+          },
+          "dispute_channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispute Channel"
+          },
+          "create_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Create Time"
+          },
+          "update_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Time"
+          },
+          "seller_response_due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Response Due Date"
+          },
+          "buyer_response_due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Response Due Date"
+          },
+          "transactions": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalTransaction-Input"
+            },
+            "type": "array",
+            "title": "Transactions"
+          },
+          "existing_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalEvidence"
+            },
+            "type": "array",
+            "title": "Existing Evidence"
+          },
+          "requested_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalEvidenceRequirement"
+            },
+            "type": "array",
+            "title": "Requested Evidence"
+          },
+          "supporting_info": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalSupportingInfo"
+            },
+            "type": "array",
+            "title": "Supporting Info"
+          },
+          "tracking_info": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalTracking"
+            },
+            "type": "array",
+            "title": "Tracking Info"
+          },
+          "refund_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Refund Ids"
+          },
+          "delivery_details": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalDelivery"
+            },
+            "type": "array",
+            "title": "Delivery Details"
+          },
+          "return_shipping_address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalReturnAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refund_details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalRefundDetails-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "money_movements": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalMoneyMovement-Input"
+            },
+            "type": "array",
+            "title": "Money Movements"
+          },
+          "allowed_response_options": {
+            "$ref": "#/components/schemas/PayPalResponseOptions"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalLink"
+            },
+            "type": "array",
+            "title": "Links"
+          },
+          "normalization_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Normalization Warnings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dispute_id",
+          "reason"
+        ],
+        "title": "PayPalDisputeMetadata",
+        "description": "Provider observations, never independently verified assertions of truth.\n\nUnknown fields remain in the original snapshot; missing optional observations\nstay null/empty. Malformed optional fields are reported without inventing a\nsubstitute. Executable actions still come from validated PayPal action links."
+      },
+      "PayPalDisputeMetadata-Output": {
+        "properties": {
+          "dispute_id": {
+            "type": "string",
+            "title": "Dispute Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "dispute_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispute State"
+          },
+          "dispute_life_cycle_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispute Life Cycle Stage"
+          },
+          "dispute_channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispute Channel"
+          },
+          "create_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Create Time"
+          },
+          "update_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Time"
+          },
+          "seller_response_due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Response Due Date"
+          },
+          "buyer_response_due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Response Due Date"
+          },
+          "transactions": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalTransaction-Output"
+            },
+            "type": "array",
+            "title": "Transactions"
+          },
+          "existing_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalEvidence"
+            },
+            "type": "array",
+            "title": "Existing Evidence"
+          },
+          "requested_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalEvidenceRequirement"
+            },
+            "type": "array",
+            "title": "Requested Evidence"
+          },
+          "supporting_info": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalSupportingInfo"
+            },
+            "type": "array",
+            "title": "Supporting Info"
+          },
+          "tracking_info": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalTracking"
+            },
+            "type": "array",
+            "title": "Tracking Info"
+          },
+          "refund_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Refund Ids"
+          },
+          "delivery_details": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalDelivery"
+            },
+            "type": "array",
+            "title": "Delivery Details"
+          },
+          "return_shipping_address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalReturnAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refund_details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalRefundDetails-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "money_movements": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalMoneyMovement-Output"
+            },
+            "type": "array",
+            "title": "Money Movements"
+          },
+          "allowed_response_options": {
+            "$ref": "#/components/schemas/PayPalResponseOptions"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalLink"
+            },
+            "type": "array",
+            "title": "Links"
+          },
+          "normalization_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Normalization Warnings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dispute_id",
+          "reason"
+        ],
+        "title": "PayPalDisputeMetadata",
+        "description": "Provider observations, never independently verified assertions of truth.\n\nUnknown fields remain in the original snapshot; missing optional observations\nstay null/empty. Malformed optional fields are reported without inventing a\nsubstitute. Executable actions still come from validated PayPal action links."
+      },
+      "PayPalDocument": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalDocument"
+      },
+      "PayPalEvidence": {
+        "properties": {
+          "evidence_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Type"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "item_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Type"
+          },
+          "dispute_life_cycle_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispute Life Cycle Stage"
+          },
+          "action_info": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalEvidenceRequirement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tracking_info": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalTracking"
+            },
+            "type": "array",
+            "title": "Tracking Info"
+          },
+          "refund_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Refund Ids"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalDocument"
+            },
+            "type": "array",
+            "title": "Documents"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalEvidence"
+      },
+      "PayPalEvidenceRequirement": {
+        "properties": {
+          "evidence_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Type"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "response_option": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Option"
+          },
+          "mandatory": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mandatory"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalEvidenceRequirement"
+      },
+      "PayPalItem-Input": {
+        "properties": {
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "item_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Name"
+          },
+          "item_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Description"
+          },
+          "item_quantity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Quantity"
+          },
+          "item_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Type"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "dispute_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "partner_transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partner Transaction Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalItem"
+      },
+      "PayPalItem-Output": {
+        "properties": {
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "item_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Name"
+          },
+          "item_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Description"
+          },
+          "item_quantity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Quantity"
+          },
+          "item_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Type"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "dispute_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "partner_transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partner Transaction Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalItem"
+      },
+      "PayPalLink": {
+        "properties": {
+          "href": {
+            "type": "string",
+            "title": "Href"
+          },
+          "rel": {
+            "type": "string",
+            "title": "Rel"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "href",
+          "rel"
+        ],
+        "title": "PayPalLink"
+      },
+      "PayPalMoney-Input": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,29}|(?=[\\d.]{1,33}0*$)\\d{0,29}\\.\\d{0,3}0*$)"
+              }
+            ],
+            "title": "Value"
+          },
+          "currency_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "currency_code"
+        ],
+        "title": "PayPalMoney"
+      },
+      "PayPalMoney-Output": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,29}|(?=[\\d.]{1,33}0*$)\\d{0,29}\\.\\d{0,3}0*$)",
+            "title": "Value"
+          },
+          "currency_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "currency_code"
+        ],
+        "title": "PayPalMoney"
+      },
+      "PayPalMoneyMovement-Input": {
+        "properties": {
+          "affected_party": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Affected Party"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "initiated_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiated Time"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalMoneyMovement"
+      },
+      "PayPalMoneyMovement-Output": {
+        "properties": {
+          "affected_party": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Affected Party"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "initiated_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiated Time"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalMoneyMovement"
+      },
+      "PayPalParty": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "merchant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalParty"
+      },
+      "PayPalRefundDetails-Input": {
+        "properties": {
+          "allowed_refund_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amount_refunded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalRefundDetails"
+      },
+      "PayPalRefundDetails-Output": {
+        "properties": {
+          "allowed_refund_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amount_refunded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalRefundDetails"
+      },
+      "PayPalResponseOptions": {
+        "properties": {
+          "accept_claim_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Accept Claim Types"
+          },
+          "offer_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Offer Types"
+          },
+          "acknowledgement_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Acknowledgement Types"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalResponseOptions"
+      },
+      "PayPalReturnAddress": {
+        "properties": {
+          "address_line_1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Line 1"
+          },
+          "address_line_2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Line 2"
+          },
+          "address_line_3": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Line 3"
+          },
+          "admin_area_1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Area 1"
+          },
+          "admin_area_2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Area 2"
+          },
+          "admin_area_3": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Area 3"
+          },
+          "admin_area_4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Area 4"
+          },
+          "postal_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postal Code"
+          },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalReturnAddress"
+      },
+      "PayPalSupportingInfo": {
+        "properties": {
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "provided_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provided Time"
+          },
+          "dispute_life_cycle_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispute Life Cycle Stage"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalDocument"
+            },
+            "type": "array",
+            "title": "Documents"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalSupportingInfo"
+      },
+      "PayPalTracking": {
+        "properties": {
+          "carrier_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carrier Name"
+          },
+          "carrier_name_other": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carrier Name Other"
+          },
+          "tracking_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tracking Number"
+          },
+          "tracking_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tracking Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalTracking"
+      },
+      "PayPalTransaction-Input": {
+        "properties": {
+          "seller_transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Transaction Id"
+          },
+          "buyer_transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Transaction Id"
+          },
+          "reference_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Id"
+          },
+          "create_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Create Time"
+          },
+          "transaction_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Status"
+          },
+          "gross_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "invoice_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Number"
+          },
+          "custom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom"
+          },
+          "buyer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalParty"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "seller": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalParty"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalItem-Input"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalTransaction"
+      },
+      "PayPalTransaction-Output": {
+        "properties": {
+          "seller_transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Transaction Id"
+          },
+          "buyer_transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Transaction Id"
+          },
+          "reference_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Id"
+          },
+          "create_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Create Time"
+          },
+          "transaction_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Status"
+          },
+          "gross_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalMoney-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "invoice_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Number"
+          },
+          "custom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom"
+          },
+          "buyer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalParty"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "seller": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayPalParty"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PayPalItem-Output"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PayPalTransaction"
+      },
       "PolicyDocument-Input": {
         "properties": {
           "id": {
@@ -2549,6 +4629,22 @@
             "type": "boolean",
             "title": "Synthetic",
             "default": true
+          },
+          "authoritative_vocabulary": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                },
+                "type": "array",
+                "maxItems": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authoritative Vocabulary"
           },
           "sections": {
             "items": {
@@ -2600,6 +4696,22 @@
             "type": "boolean",
             "title": "Synthetic",
             "default": true
+          },
+          "authoritative_vocabulary": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                },
+                "type": "array",
+                "maxItems": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authoritative Vocabulary"
           },
           "sections": {
             "items": {
@@ -2842,6 +4954,12 @@
       },
       "RetrievalResult": {
         "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version",
+            "default": "1.0"
+          },
           "policy_id": {
             "type": "string",
             "title": "Policy Id"
@@ -2854,6 +4972,22 @@
             "type": "boolean",
             "title": "Synthetic"
           },
+          "authoritative_vocabulary": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                },
+                "type": "array",
+                "maxItems": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authoritative Vocabulary"
+          },
           "clauses": {
             "items": {
               "$ref": "#/components/schemas/Clause"
@@ -2863,8 +4997,7 @@
           },
           "trace": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/RetrievalTraceStep"
             },
             "type": "array",
             "title": "Trace"
@@ -2879,6 +5012,99 @@
           "clauses"
         ],
         "title": "RetrievalResult"
+      },
+      "RetrievalTraceStep": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version",
+            "default": "1.0"
+          },
+          "path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Path"
+          },
+          "offered": {
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+            },
+            "type": "array",
+            "title": "Offered"
+          },
+          "selected": {
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+            },
+            "type": "array",
+            "title": "Selected"
+          },
+          "selector": {
+            "type": "string",
+            "enum": [
+              "deterministic_demo",
+              "llm"
+            ],
+            "title": "Selector"
+          },
+          "operation": {
+            "type": "string",
+            "const": "selection",
+            "title": "Operation",
+            "default": "selection"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "deterministic",
+              "probabilistic"
+            ],
+            "title": "Mode",
+            "default": "deterministic"
+          },
+          "duration_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Duration Ms",
+            "default": 0
+          },
+          "input_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Sha256"
+          },
+          "output_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "offered",
+          "selected",
+          "selector"
+        ],
+        "title": "RetrievalTraceStep"
       },
       "ReviewInput": {
         "properties": {
@@ -3086,6 +5312,73 @@
         ],
         "title": "RunView"
       },
+      "SolverDiagnostic": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "title": "Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "fact_ids": {
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Fact Ids"
+          },
+          "rule_ids": {
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Rule Ids"
+          },
+          "literals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 2000,
+            "title": "Literals"
+          },
+          "suggestions": {
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Suggestions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "title": "SolverDiagnostic"
+      },
       "SolverResult": {
         "properties": {
           "status": {
@@ -3141,6 +5434,13 @@
             },
             "type": "array",
             "title": "Diagnostics"
+          },
+          "diagnostic_details": {
+            "items": {
+              "$ref": "#/components/schemas/SolverDiagnostic"
+            },
+            "type": "array",
+            "title": "Diagnostic Details"
           }
         },
         "additionalProperties": false,
@@ -3242,6 +5542,67 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerificationResult": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Contract Version",
+            "default": "1.0"
+          },
+          "valid": {
+            "type": "boolean",
+            "const": true,
+            "title": "Valid"
+          },
+          "checked_fact_ids": {
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "type": "array",
+            "title": "Checked Fact Ids"
+          },
+          "checked_clause_sha256": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Checked Clause Sha256"
+          },
+          "checked_citations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Checked Citations"
+          },
+          "knowledge_base_sha256": {
+            "type": "string",
+            "title": "Knowledge Base Sha256"
+          },
+          "scope": {
+            "type": "string",
+            "const": "references_hashes_exact_quotes",
+            "title": "Scope",
+            "default": "references_hashes_exact_quotes"
+          },
+          "semantic_entailment_checked": {
+            "type": "boolean",
+            "const": false,
+            "title": "Semantic Entailment Checked",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "valid",
+          "checked_fact_ids",
+          "checked_clause_sha256",
+          "checked_citations",
+          "knowledge_base_sha256"
+        ],
+        "title": "VerificationResult"
       }
     }
   }

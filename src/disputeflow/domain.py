@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Annotated, Any
 from typing import Literal as TypeLiteral
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 ResourceId = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")]
@@ -14,6 +14,12 @@ ResourceId = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
 class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class VersionedContract(Contract):
+    """Only this wire version is accepted; missing versions decode legacy records."""
+
+    contract_version: TypeLiteral["1.0"] = "1.0"
 
 
 class Action(StrEnum):
@@ -41,16 +47,180 @@ class Evidence(Contract):
     source: str = Field(default="operator", max_length=500)
 
 
+class PayPalMoney(Contract):
+    value: Decimal = Field(max_digits=32, decimal_places=3)
+    currency_code: str = Field(pattern=r"^[A-Z]{3}$")
+
+
+class PayPalParty(Contract):
+    name: str | None = None
+    email: str | None = None
+    merchant_id: str | None = None
+
+
+class PayPalItem(Contract):
+    item_id: str | None = None
+    item_name: str | None = None
+    item_description: str | None = None
+    item_quantity: int | None = Field(default=None, ge=1)
+    item_type: str | None = None
+    reason: str | None = None
+    dispute_amount: PayPalMoney | None = None
+    partner_transaction_id: str | None = None
+    notes: str | None = None
+
+
+class PayPalTransaction(Contract):
+    seller_transaction_id: str | None = None
+    buyer_transaction_id: str | None = None
+    reference_id: str | None = None
+    create_time: AwareDatetime | None = None
+    transaction_status: str | None = None
+    gross_amount: PayPalMoney | None = None
+    invoice_number: str | None = None
+    custom: str | None = None
+    buyer: PayPalParty | None = None
+    seller: PayPalParty | None = None
+    items: list[PayPalItem] = Field(default_factory=list)
+
+
+class PayPalTracking(Contract):
+    carrier_name: str | None = None
+    carrier_name_other: str | None = None
+    tracking_number: str | None = None
+    tracking_url: str | None = None
+
+
+class PayPalDocument(Contract):
+    name: str | None = None
+    url: str | None = None
+
+
+class PayPalEvidenceRequirement(Contract):
+    evidence_type: str | None = None
+    action: str | None = None
+    response_option: str | None = None
+    mandatory: bool | None = None
+
+
+class PayPalEvidence(Contract):
+    evidence_type: str | None = None
+    source: str | None = None
+    date: AwareDatetime | None = None
+    notes: str | None = None
+    item_id: str | None = None
+    item_type: str | None = None
+    dispute_life_cycle_stage: str | None = None
+    action_info: PayPalEvidenceRequirement | None = None
+    tracking_info: list[PayPalTracking] = Field(default_factory=list)
+    refund_ids: list[str] = Field(default_factory=list)
+    documents: list[PayPalDocument] = Field(default_factory=list)
+
+
+class PayPalSupportingInfo(Contract):
+    notes: str | None = None
+    source: str | None = None
+    provided_time: AwareDatetime | None = None
+    dispute_life_cycle_stage: str | None = None
+    documents: list[PayPalDocument] = Field(default_factory=list)
+
+
+class PayPalReturnAddress(Contract):
+    address_line_1: str | None = None
+    address_line_2: str | None = None
+    address_line_3: str | None = None
+    admin_area_1: str | None = None
+    admin_area_2: str | None = None
+    admin_area_3: str | None = None
+    admin_area_4: str | None = None
+    postal_code: str | None = None
+    country_code: str | None = None
+
+
+class PayPalDelivery(Contract):
+    source_path: str
+    item_id: str | None = None
+    description: str | None = None
+    product_received: str | None = None
+    product_received_time: AwareDatetime | None = None
+    expected_delivery_date: AwareDatetime | None = None
+    return_time: AwareDatetime | None = None
+    return_mode: str | None = None
+    return_receipt: bool | None = None
+    returned: bool | None = None
+    return_confirmation_number: str | None = None
+
+
+class PayPalRefundDetails(Contract):
+    allowed_refund_amount: PayPalMoney | None = None
+    amount_refunded: PayPalMoney | None = None
+    outcome_code: str | None = None
+
+
+class PayPalMoneyMovement(Contract):
+    affected_party: str | None = None
+    amount: PayPalMoney | None = None
+    initiated_time: AwareDatetime | None = None
+    type: str | None = None
+    reason: str | None = None
+
+
+class PayPalResponseOptions(Contract):
+    accept_claim_types: list[str] = Field(default_factory=list)
+    offer_types: list[str] = Field(default_factory=list)
+    acknowledgement_types: list[str] = Field(default_factory=list)
+
+
+class PayPalLink(Contract):
+    href: str
+    rel: str
+    method: str | None = None
+
+
+class PayPalDisputeMetadata(Contract):
+    """Provider observations, never independently verified assertions of truth.
+
+    Unknown fields remain in the original snapshot; missing optional observations
+    stay null/empty. Malformed optional fields are reported without inventing a
+    substitute. Executable actions still come from validated PayPal action links.
+    """
+
+    dispute_id: str
+    reason: str
+    status: str | None = None
+    dispute_state: str | None = None
+    dispute_life_cycle_stage: str | None = None
+    dispute_channel: str | None = None
+    create_time: AwareDatetime | None = None
+    update_time: AwareDatetime | None = None
+    seller_response_due_date: AwareDatetime | None = None
+    buyer_response_due_date: AwareDatetime | None = None
+    transactions: list[PayPalTransaction] = Field(default_factory=list)
+    existing_evidence: list[PayPalEvidence] = Field(default_factory=list)
+    requested_evidence: list[PayPalEvidenceRequirement] = Field(default_factory=list)
+    supporting_info: list[PayPalSupportingInfo] = Field(default_factory=list)
+    tracking_info: list[PayPalTracking] = Field(default_factory=list)
+    refund_ids: list[str] = Field(default_factory=list)
+    delivery_details: list[PayPalDelivery] = Field(default_factory=list)
+    return_shipping_address: PayPalReturnAddress | None = None
+    refund_details: PayPalRefundDetails | None = None
+    money_movements: list[PayPalMoneyMovement] = Field(default_factory=list)
+    allowed_response_options: PayPalResponseOptions = Field(default_factory=PayPalResponseOptions)
+    links: list[PayPalLink] = Field(default_factory=list)
+    normalization_warnings: list[str] = Field(default_factory=list)
+
+
 class CaseInput(Contract):
     external_id: ResourceId | None = None
     reason: str = Field(min_length=1, max_length=128)
-    amount: Decimal = Field(ge=0, max_digits=16, decimal_places=2)
+    amount: Decimal = Field(ge=0, max_digits=16, decimal_places=3)
     currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
     summary: str = Field(min_length=1, max_length=20_000)
     evidence: list[Evidence] = Field(default_factory=list, max_length=100)
     policy_id: ResourceId = "demo_policy"
     auto_execute: bool = False
     allowed_actions: list[Action] = Field(default_factory=list)
+    paypal: PayPalDisputeMetadata | None = None
 
     @model_validator(mode="after")
     def unique_evidence(self) -> "CaseInput":
@@ -137,6 +307,7 @@ class PolicyDocument(Contract):
     version: str = Field(min_length=1, max_length=100)
     source_url: str = Field(min_length=1, max_length=2000)
     synthetic: bool = True
+    authoritative_vocabulary: list[Identifier] | None = Field(default=None, max_length=1000)
     sections: list[PolicySection] = Field(min_length=1, max_length=100)
 
     @model_validator(mode="after")
@@ -170,12 +341,29 @@ class Clause(Contract):
     sha256: str
 
 
-class RetrievalResult(Contract):
+class RetrievalTraceStep(VersionedContract):
+    path: list[str]
+    offered: list[ResourceId]
+    selected: list[ResourceId]
+    selector: TypeLiteral["deterministic_demo", "llm"]
+    operation: TypeLiteral["selection"] = "selection"
+    mode: TypeLiteral["deterministic", "probabilistic"] = "deterministic"
+    duration_ms: float = Field(default=0, ge=0)
+    input_sha256: str | None = None
+    output_sha256: str | None = None
+
+    def __getitem__(self, key: str) -> Any:
+        """Compatibility for callers reading the former trace dictionaries."""
+        return getattr(self, key)
+
+
+class RetrievalResult(VersionedContract):
     policy_id: str
     policy_version: str
     synthetic: bool
+    authoritative_vocabulary: list[Identifier] | None = Field(default=None, max_length=1000)
     clauses: list[Clause]
-    trace: list[dict[str, Any]] = Field(default_factory=list)
+    trace: list[RetrievalTraceStep] = Field(default_factory=list)
 
 
 class ProofNode(Contract):
@@ -204,6 +392,16 @@ class StableModel(Contract):
     decisions: list[Action]
 
 
+class SolverDiagnostic(Contract):
+    code: Identifier
+    severity: TypeLiteral["error", "warning", "info"]
+    message: str = Field(min_length=1, max_length=8000)
+    fact_ids: list[Identifier] = Field(default_factory=list, max_length=500)
+    rule_ids: list[Identifier] = Field(default_factory=list, max_length=500)
+    literals: list[str] = Field(default_factory=list, max_length=2000)
+    suggestions: list[Identifier] = Field(default_factory=list, max_length=3)
+
+
 class SolverResult(Contract):
     status: TypeLiteral["unique", "multiple", "inconsistent", "truncated", "timeout"]
     models: list[StableModel]
@@ -214,6 +412,7 @@ class SolverResult(Contract):
     credulous: list[Literal]
     proof: ProofGraph
     diagnostics: list[str] = Field(default_factory=list)
+    diagnostic_details: list[SolverDiagnostic] = Field(default_factory=list)
 
 
 class GovernanceResult(Contract):
@@ -263,13 +462,163 @@ class EvidenceVerificationInput(Contract):
     note: str = Field(min_length=3, max_length=4000)
 
 
-class AnalysisResult(Contract):
+class PolicyHeading(Contract):
+    id: ResourceId
+    title: str
+    keywords: list[str] = Field(default_factory=list)
+    has_text: bool
+    children: list["PolicyHeading"] = Field(default_factory=list)
+
+
+class PolicySelectionInput(VersionedContract):
+    component: TypeLiteral["policy_selection"] = "policy_selection"
+    case: CaseInput
+    headings: list[PolicyHeading]
+    path: list[str]
+
+
+class PolicySelectionOutput(VersionedContract):
+    component: TypeLiteral["policy_selection"] = "policy_selection"
+    section_ids: list[ResourceId]
+
+
+class PolicyRetrievalInput(VersionedContract):
+    component: TypeLiteral["policy_retrieval"] = "policy_retrieval"
+    case: CaseInput
+    policy: PolicyDocument
+    max_clauses: int = Field(default=12, ge=1, le=1000)
+
+
+class PolicyRetrievalOutput(VersionedContract):
+    component: TypeLiteral["policy_retrieval"] = "policy_retrieval"
     retrieval: RetrievalResult
+
+
+class ExtractionInput(VersionedContract):
+    component: TypeLiteral["extraction"] = "extraction"
+    case: CaseInput
+    retrieval: RetrievalResult
+    previous: KnowledgeBase | None = None
+    diagnostics: list[str] = Field(default_factory=list)
+
+
+class ExtractionOutput(VersionedContract):
+    component: TypeLiteral["extraction"] = "extraction"
+    knowledge_base: KnowledgeBase
+
+
+class VerificationInput(VersionedContract):
+    component: TypeLiteral["verification"] = "verification"
+    case: CaseInput
+    retrieval: RetrievalResult
+    knowledge_base: KnowledgeBase
+    previous: KnowledgeBase | None = None
+
+
+class VerificationResult(VersionedContract):
+    valid: TypeLiteral[True]
+    checked_fact_ids: list[Identifier]
+    checked_clause_sha256: dict[str, str]
+    checked_citations: int = Field(ge=0)
+    knowledge_base_sha256: str
+    scope: TypeLiteral["references_hashes_exact_quotes"] = "references_hashes_exact_quotes"
+    semantic_entailment_checked: TypeLiteral[False] = False
+
+
+class VerificationOutput(VersionedContract):
+    component: TypeLiteral["verification"] = "verification"
+    verification: VerificationResult
+
+
+class ReasoningInput(VersionedContract):
+    component: TypeLiteral["asp_reasoning"] = "asp_reasoning"
+    knowledge_base: KnowledgeBase
+    authoritative_vocabulary: list[Identifier] | None = None
+    max_models: int = Field(ge=1)
+    timeout_seconds: float = Field(gt=0)
+
+
+class ReasoningOutput(VersionedContract):
+    component: TypeLiteral["asp_reasoning"] = "asp_reasoning"
+    solver: SolverResult
+
+
+class GovernanceControls(Contract):
+    auto_confidence_threshold: float = Field(ge=0, le=1)
+    auto_max_amount: float = Field(ge=0)
+    auto_currency: str = Field(pattern=r"^[A-Z]{3}$")
+
+
+class GovernanceInput(VersionedContract):
+    component: TypeLiteral["governance"] = "governance"
+    case: CaseInput
+    retrieval: RetrievalResult
+    knowledge_base: KnowledgeBase
+    solver: SolverResult
+    controls: GovernanceControls
+
+
+class GovernanceOutput(VersionedContract):
+    component: TypeLiteral["governance"] = "governance"
+    governance: GovernanceResult
+
+
+class AnalysisAttempt(VersionedContract):
+    attempt: int = Field(ge=0)
+    status: TypeLiteral[
+        "invalid_extraction",
+        "unique",
+        "multiple",
+        "inconsistent",
+        "truncated",
+        "timeout",
+        "component_failed",
+    ]
+    knowledge_base: KnowledgeBase | None = None
+    program_sha256: str | None = None
+    solver: SolverResult | None = None
+    diagnostics: list[str] = Field(default_factory=list)
+    decision: TypeLiteral["return", "repair", "reject"] = "return"
+
+
+class AnalysisStep(VersionedContract):
+    component: TypeLiteral[
+        "policy_retrieval", "extraction", "verification", "asp_reasoning", "governance"
+    ]
+    mode: TypeLiteral["deterministic", "probabilistic"]
+    attempt: int = Field(default=0, ge=0)
+    status: TypeLiteral["succeeded", "rejected", "failed"]
+    decision: str
+    started_at: datetime
+    finished_at: datetime
+    duration_ms: float = Field(ge=0)
+    input_sha256: str
+    output_sha256: str | None = None
+    error_code: str | None = None
+    diagnostics: list[str] = Field(default_factory=list)
+    input_ref: str
+    output_ref: str | None = None
+    verification: VerificationResult | None = None
+    max_clauses: int | None = None
+    max_models: int | None = None
+    timeout_seconds: float | None = None
+    governance_controls: GovernanceControls | None = None
+
+    @model_validator(mode="after")
+    def matching_component(self) -> "AnalysisStep":
+        if self.finished_at < self.started_at:
+            raise ValueError("Stage completion cannot precede its start")
+        return self
+
+
+class AnalysisResult(VersionedContract):
+    retrieval: RetrievalResult | None
     knowledge_base: KnowledgeBase | None
     solver: SolverResult | None
     governance: GovernanceResult
-    attempts: list[dict[str, Any]]
+    attempts: list[AnalysisAttempt]
     agents: list[str]
+    stage_trace: list[AnalysisStep] = Field(default_factory=list)
 
 
 class RunView(Contract):

@@ -17,16 +17,21 @@ import math
 import multiprocessing
 import time
 from dataclasses import dataclass
+from difflib import get_close_matches
 from typing import Any
+
+from pydantic import TypeAdapter
 
 from disputeflow.domain import (
     Action,
+    Identifier,
     KnowledgeBase,
     Literal,
     ProofEdge,
     ProofGraph,
     ProofNode,
     Rule,
+    SolverDiagnostic,
     SolverResult,
     StableModel,
 )
@@ -171,6 +176,165 @@ def _compile(encoding: _Encoding) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _static_diagnostics(
+    encoding: _Encoding, authoritative_vocabulary: list[str] | None
+) -> list[SolverDiagnostic]:
+    """Check possible support without changing defeasible rule semantics.
+
+    Reachability is an overapproximation: it uses signed, positive body
+    requirements but does not assume a default-negated exception must exist.
+    A reachable rule may still be defeated or blocked in the stable models.
+    Policy authors, rather than the extractor, supply the optional vocabulary.
+    """
+    kb = encoding.kb
+    reachable = {fact.literal.key() for fact in kb.facts}
+    changed = True
+    while changed:
+        changed = False
+        for rule in kb.rules:
+            if rule.kind == "defeater" or rule.head.key() in reachable:
+                continue
+            if all(literal.key() in reachable for literal in rule.body):
+                reachable.add(rule.head.key())
+                changed = True
+
+    predicates = {literal.name for literal in encoding.literals}
+    allowed = (
+        None
+        if authoritative_vocabulary is None
+        else set(TypeAdapter(list[Identifier]).validate_python(authoritative_vocabulary))
+    )
+    if allowed is not None and len(authoritative_vocabulary) > 1000:
+        raise ValueError("Authoritative vocabulary cannot exceed 1000 predicates")
+    reserved = {f"decision_{action.value}" for action in Action}
+    candidates = sorted((predicates | (allowed or set())) - reserved)
+
+    def related(name: str) -> list[str]:
+        return get_close_matches(
+            name, [item for item in candidates if item != name], n=3, cutoff=0.6
+        )
+
+    def suggestion_note(suggestions: list[str]) -> str:
+        if not suggestions:
+            return ""
+        return (
+            " Possible related predicates: "
+            + ", ".join(suggestions)
+            + "; verify their meaning with the policy author. No predicate was renamed."
+        )
+
+    details: list[SolverDiagnostic] = []
+    if allowed is None:
+        details.append(
+            SolverDiagnostic(
+                code="vocabulary_not_configured",
+                severity="info",
+                message="No policy-author vocabulary is configured; unknown predicates cannot be checked.",
+            )
+        )
+    else:
+        for name in sorted(predicates - allowed - reserved):
+            suggestions = get_close_matches(name, sorted(allowed - {name}), n=3, cutoff=0.6)
+            details.append(
+                SolverDiagnostic(
+                    code="unknown_predicate",
+                    severity="error",
+                    message=f"Predicate {name} is not in the policy-author vocabulary."
+                    + suggestion_note(suggestions),
+                    fact_ids=sorted(fact.id for fact in kb.facts if fact.literal.name == name),
+                    rule_ids=sorted(
+                        rule.id
+                        for rule in kb.rules
+                        if name
+                        in {literal.name for literal in [rule.head, *rule.body, *rule.unless]}
+                    ),
+                    literals=sorted(
+                        literal.key()
+                        for literal in encoding.literals
+                        if literal.name == name
+                        and (
+                            any(fact.literal == literal for fact in kb.facts)
+                            or any(
+                                literal in [rule.head, *rule.body, *rule.unless]
+                                for rule in kb.rules
+                            )
+                        )
+                    ),
+                    suggestions=suggestions,
+                )
+            )
+
+    unavailable: dict[str, list[str]] = {}
+    reachable_rules = []
+    for rule in kb.rules:
+        missing = sorted({literal.key() for literal in rule.body} - reachable)
+        if not missing:
+            reachable_rules.append(rule)
+            continue
+        for literal in missing:
+            unavailable.setdefault(literal, []).append(rule.id)
+        details.append(
+            SolverDiagnostic(
+                code="unreachable_rule",
+                severity="warning",
+                message=f"Rule {rule.id} is unreachable: no possible support for "
+                + ", ".join(missing)
+                + ".",
+                rule_ids=[rule.id],
+                literals=missing,
+            )
+        )
+    for key in sorted(unavailable):
+        name = key.removeprefix("-")
+        suggestions = related(name)
+        details.append(
+            SolverDiagnostic(
+                code="unreachable_premise",
+                severity="warning",
+                message=f"Premise {key} is not derivable from the facts or any reachable rule head."
+                + suggestion_note(suggestions),
+                rule_ids=sorted(set(unavailable[key])),
+                literals=[key],
+                suggestions=suggestions,
+            )
+        )
+
+    # Work backwards from potentially executable merchant decisions. Opposing
+    # heads, defeaters and exceptions also influence decisions, so they and
+    # their premises count as contributions even when they do not derive a head.
+    relevant: set[str] = set()
+    pending = sorted(
+        f"decision_{action.value}"
+        for action in Action
+        if action != Action.NO_ACTION and f"decision_{action.value}" in reachable
+    )
+    while pending:
+        key = pending.pop()
+        if key in relevant:
+            continue
+        relevant.add(key)
+        contrary = key[1:] if key.startswith("-") else "-" + key
+        relevant.add(contrary)
+        for rule in reachable_rules:
+            if rule.head.key() in {key, contrary}:
+                pending.extend(literal.key() for literal in rule.body + rule.unless)
+    for fact in kb.facts:
+        if fact.literal.key() not in relevant:
+            suggestions = related(fact.literal.name)
+            details.append(
+                SolverDiagnostic(
+                    code="noncontributing_fact",
+                    severity="info",
+                    message=f"Fact {fact.id} ({fact.literal.key()}) does not contribute to any "
+                    "reachable executable merchant decision." + suggestion_note(suggestions),
+                    fact_ids=[fact.id],
+                    literals=[fact.literal.key()],
+                    suggestions=suggestions,
+                )
+            )
+    return details
+
+
 def compile_program(kb: KnowledgeBase) -> str:
     """Compile validated knowledge without accepting user-supplied ASP text."""
     return _compile(_prepare(kb))
@@ -261,7 +425,13 @@ def _priority_closure(kb: KnowledgeBase) -> set[tuple[str, str]]:
     return closure
 
 
-def _proof(encoding: _Encoding, models: list[StableModel], status: str, digest: str) -> ProofGraph:
+def _proof(
+    encoding: _Encoding,
+    models: list[StableModel],
+    status: str,
+    digest: str,
+    diagnostics: list[SolverDiagnostic],
+) -> ProofGraph:
     nodes: dict[str, ProofNode] = {}
     edges: set[tuple[str, str, str]] = set()
 
@@ -383,6 +553,20 @@ def _proof(encoding: _Encoding, models: list[StableModel], status: str, digest: 
         for other in encoding.kb.facts:
             if other.literal.key() == contrary:
                 edge(f"fact:{fact.id}", f"fact:{other.id}", "contradicts")
+    for diagnostic in diagnostics:
+        data = diagnostic.model_dump(mode="json")
+        identity = hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:24]
+        did = node(f"diagnostic:{identity}", "diagnostic", diagnostic.message, **data)
+        edge(root, did, "diagnoses")
+        for prefix, identifiers in (
+            ("fact", diagnostic.fact_ids),
+            ("rule", diagnostic.rule_ids),
+            ("literal", diagnostic.literals),
+        ):
+            for identifier in identifiers:
+                target = f"{prefix}:{identifier}"
+                if target in nodes:
+                    edge(did, target, "concerns")
     return ProofGraph(
         nodes=[nodes[identifier] for identifier in sorted(nodes)],
         edges=[
@@ -392,7 +576,13 @@ def _proof(encoding: _Encoding, models: list[StableModel], status: str, digest: 
     )
 
 
-def solve(kb: KnowledgeBase, *, max_models: int = 64, timeout_seconds: float = 5) -> SolverResult:
+def solve(
+    kb: KnowledgeBase,
+    *,
+    max_models: int = 64,
+    timeout_seconds: float = 5,
+    authoritative_vocabulary: list[str] | None = None,
+) -> SolverResult:
     """Enumerate stable models within a hard deadline, then derive safe summaries.
 
     A truncated or timed out enumeration never claims skeptical entailment or a
@@ -413,16 +603,21 @@ def solve(kb: KnowledgeBase, *, max_models: int = 64, timeout_seconds: float = 5
         raise ValueError("timeout_seconds must be finite and between 0 and 300")
     deadline = time.monotonic() + timeout_seconds
     encoding = _prepare(kb)
+    static_diagnostics = _static_diagnostics(encoding, authoritative_vocabulary)
     program = _compile(encoding)
     digest = hashlib.sha256(program.encode()).hexdigest()
     payload = _enumerate(program, max_models, deadline)
     diagnostics: list[str] = []
+    runtime_diagnostics: list[SolverDiagnostic] = []
     models: list[StableModel] = []
     complete = False
     if payload is None:
         status = "timeout"
         diagnostics.append(
             "ASP grounding or solving exceeded the wall-clock deadline; no decision is established."
+        )
+        runtime_diagnostics.append(
+            SolverDiagnostic(code="solver_timeout", severity="error", message=diagnostics[-1])
         )
     else:
         raw_models = payload["models"]
@@ -435,13 +630,34 @@ def solve(kb: KnowledgeBase, *, max_models: int = 64, timeout_seconds: float = 5
             diagnostics.append(
                 f"More than {max_models} stable models exist; enumeration is incomplete."
             )
+            runtime_diagnostics.append(
+                SolverDiagnostic(
+                    code="incomplete_enumeration", severity="error", message=diagnostics[-1]
+                )
+            )
         elif not models:
             status = "inconsistent"
             diagnostics.append(
                 "The theory has no consistent stable model; review evidence and extracted rules."
             )
+            runtime_diagnostics.append(
+                SolverDiagnostic(
+                    code="inconsistent_theory", severity="error", message=diagnostics[-1]
+                )
+            )
         else:
             status = "unique" if len(models) == 1 else "multiple"
+    if not any(action != Action.NO_ACTION for model in models for action in model.decisions):
+        runtime_diagnostics.append(
+            SolverDiagnostic(
+                code="no_executable_decision",
+                severity="error",
+                message="No executable merchant decision has been established. A unique stable "
+                "model alone does not establish an executable decision; review the facts and rules.",
+            )
+        )
+    details = [*runtime_diagnostics, *static_diagnostics]
+    diagnostics = [item.message for item in details]
     keys = [{literal.key() for literal in model.literals} for model in models]
     credulous_keys = set.union(*keys) if keys else set()
     skeptical_keys = set.intersection(*keys) if complete and keys else set()
@@ -454,6 +670,7 @@ def solve(kb: KnowledgeBase, *, max_models: int = 64, timeout_seconds: float = 5
         program_sha256=digest,
         skeptical=[by_key[key] for key in sorted(skeptical_keys)],
         credulous=[by_key[key] for key in sorted(credulous_keys)],
-        proof=_proof(encoding, models, status, digest),
+        proof=_proof(encoding, models, status, digest, details),
         diagnostics=diagnostics,
+        diagnostic_details=details,
     )

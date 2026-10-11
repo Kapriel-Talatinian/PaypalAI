@@ -36,7 +36,7 @@ from .governance import evaluate
 from .llm import ExtractionError, build_extractor, validate_grounding
 from .paypal import PayPalClient, PayPalError, normalized_case, validate_action_payload
 from .policy import PolicyCatalog
-from .reasoning import solve
+from .reasoning import UnsupportedTheoryError, solve
 
 logger = logging.getLogger(__name__)
 
@@ -109,12 +109,38 @@ async def analyze(case: CaseInput, catalog: PolicyCatalog, extractor, settings: 
                     "agents": ["stair", "extractor", "self_correction", "governance"],
                 }
             continue
-        result = await asyncio.to_thread(
-            solve,
-            knowledge,
-            max_models=settings.solver_max_models,
-            timeout_seconds=settings.solver_timeout_seconds,
-        )
+        try:
+            result = await asyncio.to_thread(
+                solve,
+                knowledge,
+                max_models=settings.solver_max_models,
+                timeout_seconds=settings.solver_timeout_seconds,
+            )
+        except UnsupportedTheoryError as exc:
+            # A solver language limitation is not evidence to rewrite a policy.
+            diagnostics = [str(exc)]
+            attempts.append(
+                {
+                    "attempt": index,
+                    "status": "unsupported_formalization",
+                    "knowledge_base": knowledge.model_dump(mode="json"),
+                    "diagnostics": diagnostics,
+                }
+            )
+            return {
+                "retrieval": retrieval.model_dump(mode="json"),
+                "knowledge_base": knowledge.model_dump(mode="json"),
+                "solver": None,
+                "attempts": attempts,
+                "governance": {
+                    "recommended_action": None,
+                    "confidence": 0,
+                    "requires_human": True,
+                    "reasons": ["Unsupported rule formalization", *diagnostics],
+                    "components": {},
+                },
+                "agents": ["stair", "extractor", "asp_compiler", "governance"],
+            }
         attempts.append(
             {
                 "attempt": index,

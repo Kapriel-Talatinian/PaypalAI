@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from disputeflow.domain import Action, ClauseCitation, Fact, KnowledgeBase, Literal, Priority, Rule
-from disputeflow.reasoning import SolverError, compile_program, solve
+from disputeflow.reasoning import SolverError, UnsupportedTheoryError, compile_program, solve
 
 
 def lit(name: str, negated: bool = False) -> Literal:
@@ -370,3 +370,234 @@ def test_asp_injection_is_rejected_even_when_domain_validation_is_bypassed():
 def test_invalid_solver_limits_are_rejected(kwargs):
     with pytest.raises(ValueError):
         solve(KnowledgeBase(), **kwargs)
+
+
+def test_superior_hold_defeats_delivery_argument_through_strict_continuation():
+    result = solve(
+        KnowledgeBase(
+            rules=[
+                rule("seller", "decision_accept_claim", negated=True),
+                rule(
+                    "contest",
+                    "decision_provide_evidence",
+                    kind="strict",
+                    body=[lit("decision_accept_claim", True)],
+                ),
+                rule("hold", "decision_provide_evidence", negated=True),
+            ],
+            priorities=[priority("hold", "seller")],
+        )
+    )
+    assert result.status == "unique"
+    assert keys(result.skeptical) == {"-decision_provide_evidence"}
+    assert result.models[0].applied_rules == ["hold"]
+    assert result.models[0].defeated_rules == ["seller"]
+    assert result.models[0].decisions == []
+
+
+def test_opposing_strict_continuations_preserve_defeasible_alternatives():
+    result = solve(
+        KnowledgeBase(
+            rules=[
+                rule("seller", "delivery"),
+                rule("buyer", "nonreceipt"),
+                rule("delivered", "received", body=[lit("delivery")], kind="strict"),
+                rule("missing", "received", negated=True, body=[lit("nonreceipt")], kind="strict"),
+            ],
+        )
+    )
+    assert result.status == "multiple"
+    assert result.enumeration_complete
+    assert {frozenset(keys(model.literals)) for model in result.models} == {
+        frozenset({"delivery", "received"}),
+        frozenset({"nonreceipt", "-received"}),
+    }
+    assert result.skeptical == []
+
+
+@pytest.mark.parametrize("mutual", [False, True])
+def test_strict_exception_cycles_are_formalization_errors_even_for_defeated_candidates(mutual):
+    rules = [
+        rule("default", "p"),
+        rule(
+            "conditional", "q", kind="strict", body=[lit("p")], unless=[lit("r" if mutual else "q")]
+        ),
+    ]
+    if mutual:
+        rules.append(rule("other", "r", kind="strict", body=[lit("p")], unless=[lit("q")]))
+    with pytest.raises(UnsupportedTheoryError, match="conditional"):
+        solve(KnowledgeBase(facts=[fact("p", True)], rules=rules), max_models=1)
+
+
+def test_hypothetical_exception_accounts_for_other_strict_consequences():
+    result = solve(
+        KnowledgeBase(
+            facts=[fact("r", True)],
+            rules=[
+                rule("default", "p"),
+                rule("first", "q", kind="strict", body=[lit("p")]),
+                rule("second", "r", kind="strict", body=[lit("p")], unless=[lit("q")]),
+            ],
+        )
+    )
+    assert result.status == "unique"
+    assert keys(result.skeptical) == {"-r", "p", "q"}
+
+
+@pytest.mark.parametrize("winner", ["seller", "hold"])
+def test_transitive_priority_follows_multiple_strict_steps(winner):
+    loser = "hold" if winner == "seller" else "seller"
+    result = solve(
+        KnowledgeBase(
+            rules=[
+                rule("seller", "delivery"),
+                rule("first", "received", kind="strict", body=[lit("delivery")]),
+                rule("second", "eligible", kind="strict", body=[lit("received")]),
+                rule("hold", "eligible", negated=True),
+                rule("middle", "unrelated"),
+            ],
+            priorities=[priority(winner, "middle"), priority("middle", loser)],
+        )
+    )
+    assert result.status == "unique"
+    assert keys(result.skeptical) == (
+        {"delivery", "received", "eligible", "unrelated"}
+        if winner == "seller"
+        else {"-eligible", "unrelated"}
+    )
+    assert result.models[0].defeated_rules == [loser]
+
+
+def test_fact_rooted_strict_chain_cannot_be_overridden_by_priority():
+    result = solve(
+        KnowledgeBase(
+            facts=[fact("delivery")],
+            rules=[
+                rule("first", "received", kind="strict", body=[lit("delivery")]),
+                rule("second", "eligible", kind="strict", body=[lit("received")]),
+                rule("hold", "eligible", negated=True),
+            ],
+            priorities=[priority("hold", "first"), priority("hold", "second")],
+        )
+    )
+    assert result.status == "unique"
+    assert keys(result.skeptical) == {"delivery", "received", "eligible"}
+    assert result.models[0].defeated_rules == ["hold"]
+
+
+def test_defeater_blocks_strict_continuation_without_deriving_head():
+    result = solve(
+        KnowledgeBase(
+            rules=[
+                rule("seller", "delivery"),
+                rule("contest", "eligible", kind="strict", body=[lit("delivery")]),
+                rule("hold", "eligible", negated=True, kind="defeater"),
+            ]
+        )
+    )
+    assert result.status == "unique"
+    assert result.models[0].literals == []
+    assert result.models[0].applied_rules == ["hold"]
+    assert result.models[0].defeated_rules == ["seller"]
+
+
+def test_conjunctive_strict_consequence_requires_all_premises():
+    rules = [
+        rule("seller", "delivery"),
+        rule("contest", "eligible", kind="strict", body=[lit("delivery"), lit("verified")]),
+        rule("hold", "eligible", negated=True),
+    ]
+    absent = solve(KnowledgeBase(rules=rules))
+    present = solve(KnowledgeBase(facts=[fact("verified")], rules=rules))
+    assert absent.status == "unique"
+    assert keys(absent.skeptical) == {"delivery", "-eligible"}
+    assert present.status == "multiple"
+    assert {frozenset(keys(m.literals)) for m in present.models} == {
+        frozenset({"verified", "delivery", "eligible"}),
+        frozenset({"verified", "-eligible"}),
+    }
+
+
+def test_joint_strict_support_uses_pairwise_root_priorities():
+    result = solve(
+        KnowledgeBase(
+            rules=[
+                rule("a", "a"),
+                rule("b", "b"),
+                rule("d", "c", negated=True),
+                rule("joint", "c", kind="strict", body=[lit("a"), lit("b")]),
+            ],
+            priorities=[priority("b", "d"), priority("d", "a")],
+        )
+    )
+    assert result.status == "multiple"
+    assert {frozenset(keys(m.literals)) for m in result.models} == {
+        frozenset({"a", "b", "c"}),
+        frozenset({"b", "-c"}),
+    }
+
+
+def test_alternative_strict_derivations_cannot_hide_a_conflict():
+    result = solve(
+        KnowledgeBase(
+            facts=[fact("received", True)],
+            rules=[
+                rule("seller", "delivery"),
+                rule("carrier", "signed"),
+                rule("first", "received", kind="strict", body=[lit("delivery")]),
+                rule("second", "received", kind="strict", body=[lit("signed")]),
+            ],
+        )
+    )
+    assert result.status == "unique"
+    assert keys(result.skeptical) == {"-received"}
+    assert result.models[0].defeated_rules == ["carrier", "seller"]
+
+
+def test_positive_strict_cycle_does_not_invent_support():
+    result = solve(
+        KnowledgeBase(
+            rules=[
+                rule("first", "a", kind="strict", body=[lit("b")]),
+                rule("second", "b", kind="strict", body=[lit("a")]),
+            ]
+        )
+    )
+    assert result.status == "unique"
+    assert result.models[0].literals == []
+
+
+def test_negative_strict_cycle_through_positive_premises_is_rejected():
+    with pytest.raises(UnsupportedTheoryError, match="exception"):
+        compile_program(
+            KnowledgeBase(
+                rules=[
+                    rule("positive", "a", kind="strict", body=[lit("b")]),
+                    rule("exception", "b", kind="strict", unless=[lit("a")]),
+                ]
+            )
+        )
+
+
+def test_indirect_defeat_proof_names_opponent_and_conflicting_consequence():
+    result = solve(
+        KnowledgeBase(
+            rules=[
+                rule("seller", "delivery"),
+                rule("contest", "eligible", kind="strict", body=[lit("delivery")]),
+                rule("hold", "eligible", negated=True),
+            ],
+            priorities=[priority("hold", "seller")],
+        )
+    )
+    model = result.models[0]
+    defeat = f"defeat:{model.id}:seller"
+    edges = {(e.source, e.target, e.relation) for e in result.proof.edges}
+    assert (f"application:{model.id}:hold", defeat, "opposing_rule") in edges
+    assert ("literal:eligible", defeat, "conflicting_consequence") in edges
+    assert not any(
+        e.target == defeat and e.relation == "strict_conflict" for e in result.proof.edges
+    )
+    identifiers = {n.id for n in result.proof.nodes}
+    assert all(e.source in identifiers and e.target in identifiers for e in result.proof.edges)
+    assert next(n for n in result.proof.nodes if n.id == "reasoning").data["semantics_version"] == 2

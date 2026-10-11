@@ -638,3 +638,58 @@ async def test_import_refresh_preserves_operator_evidence_and_same_snapshot_is_i
             ),
         )
     assert_error(exc, 422, "only be refreshed from PayPal")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unsupported", [False, True])
+async def test_strict_chain_ambiguity_and_formalization_errors_never_trigger_repair(
+    make_coordinator, unsupported
+):
+    class RecordingExtractor(DemoExtractor):
+        def __init__(self):
+            self.calls = []
+
+        async def extract(self, case, retrieval, *, previous=None, diagnostics=None):
+            self.calls.append((previous, diagnostics))
+            clause = retrieval.clauses[0]
+            citation = ClauseCitation(clause_id=clause.id, quote=clause.text)
+            rules = [
+                Rule(id="seller", head=Literal(name="delivery"), citations=[citation]),
+                Rule(id="buyer", head=Literal(name="nonreceipt"), citations=[citation]),
+                Rule(
+                    id="delivered",
+                    kind="strict",
+                    head=Literal(name="received"),
+                    body=[Literal(name="delivery")],
+                    citations=[citation],
+                ),
+                Rule(
+                    id="missing",
+                    kind="strict",
+                    head=Literal(name="received", negated=True),
+                    body=[Literal(name="nonreceipt")],
+                    citations=[citation],
+                ),
+            ]
+            if unsupported:
+                rules[2].unless = [Literal(name="received")]
+            return KnowledgeBase(rules=rules)
+
+    extractor = RecordingExtractor()
+    env = make_coordinator(extractor=extractor)
+    case, run = await run_case(env)
+    assert run.status == "completed"
+    assert extractor.calls == [(None, None)]
+    assert len(run.result["attempts"]) == 1
+    assert run.result["knowledge_base"]["rules"]
+    assert run.result["governance"]["requires_human"]
+    assert run.result["governance"]["recommended_action"] is None
+    assert stored_case(env, case["id"]).status == "review_required"
+    assert env.paypal.calls == []
+    if unsupported:
+        assert run.result["solver"] is None
+        assert run.result["attempts"][0]["status"] == "unsupported_formalization"
+        assert "delivered" in run.result["attempts"][0]["diagnostics"][0]
+    else:
+        assert run.result["solver"]["status"] == "multiple"
+        assert len(run.result["solver"]["models"]) == 2

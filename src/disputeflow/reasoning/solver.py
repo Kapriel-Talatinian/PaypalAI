@@ -1,7 +1,8 @@
 """Ground propositional defeasible rules into an auditable clingo program.
 
-Facts and strict consequences cannot be defeated. Opposing defeasible rules of
-equal priority produce alternative consistent stable models. A defeater blocks
+Facts and their exclusively strict consequences cannot be defeated. Strict
+continuations of defeasible premises retain their defeasible roots. Opposing
+defeasible arguments of equal priority produce alternative consistent models. A defeater blocks
 an opposing conclusion without deriving its own head and only yields to strict
 support or a superior opposing rule. Priorities are transitively closed.
 
@@ -36,6 +37,10 @@ from .worker import enumerate_program
 
 class SolverError(RuntimeError):
     """Infrastructure error, distinct from a logically inconsistent theory."""
+
+
+class UnsupportedTheoryError(ValueError):
+    """Unsupported rule formalization, not contradictory business evidence."""
 
 
 @dataclass(frozen=True)
@@ -103,9 +108,68 @@ def _prepare(kb: KnowledgeBase) -> _Encoding:
     )
 
 
-def _compile(encoding: _Encoding) -> str:
+def _validate_strict_exceptions(encoding: _Encoding) -> None:
+    """Reject negative strict dependency cycles before hypothetical expansion.
+
+    A stratified strict fragment gives every candidate a deterministic closure.
+    Positive recursion is permitted. Defeasible exceptions keep their existing
+    stable-model semantics; they are not part of this dependency graph.
+    """
+    strict = [rule for rule in encoding.rules if rule.kind == "strict"]
+    dependencies: dict[str, set[str]] = {}
+    for rule in strict:
+        dependencies.setdefault(rule.head.key(), set()).update(
+            literal.key() for literal in rule.body + rule.unless
+        )
+    reachability: dict[str, set[str]] = {}
+    for start in {literal.key() for rule in strict for literal in rule.unless}:
+        reached: set[str] = set()
+        pending = [start]
+        while pending:
+            current = pending.pop()
+            if current not in reached:
+                reached.add(current)
+                pending.extend(dependencies.get(current, set()) - reached)
+        reachability[start] = reached
+    cyclic = [
+        rule.id
+        for rule in strict
+        if any(rule.head.key() in reachability[literal.key()] for literal in rule.unless)
+    ]
+    if cyclic:
+        raise UnsupportedTheoryError(
+            "Strict-rule exceptions must be stratified; negative dependency cycle "
+            "through exception rules: " + ", ".join(cyclic)
+        )
+
+
+def _candidate_closure(encoding: _Encoding) -> list[str]:
+    """Strict closure of the current extension plus each candidate head."""
     lines = [
-        "% DisputeFlow propositional defeasible semantics v1",
+        "candidate(R,L) :- kind(R,defeasible), applicable(R), holds(L).",
+        "candidate(R,L) :- kind(R,defeasible), applicable(R), head(R,L).",
+    ]
+    for index, rule in enumerate(encoding.rules):
+        if rule.kind != "strict":
+            continue
+        conditions = ["kind(R,defeasible)", "applicable(R)"]
+        conditions += [
+            f"candidate(R,{encoding.literal_ids[literal.key()]})" for literal in rule.body
+        ]
+        conditions += [
+            f"not candidate(R,{encoding.literal_ids[literal.key()]})" for literal in rule.unless
+        ]
+        lines.append(f"candidate_applicable(R,{index}) :- " + ", ".join(conditions) + ".")
+        lines.append(
+            f"candidate(R,{encoding.literal_ids[rule.head.key()]}) :- candidate_applicable(R,{index})."
+        )
+    return lines
+
+
+def _compile(encoding: _Encoding) -> str:
+    _validate_strict_exceptions(encoding)
+    lines = [
+        "% DisputeFlow propositional defeasible semantics v2",
         "% IDs and literals below have been validated and encoded as integers.",
     ]
     for index, literal in enumerate(encoding.literals):
@@ -133,6 +197,28 @@ def _compile(encoding: _Encoding) -> str:
         )
         suffix = " :- " + ", ".join(conditions) if conditions else ""
         lines.append(f"applicable({index}){suffix}.")
+        if rule.kind == "strict":
+            # Definite support must be rooted exclusively in facts/strict support.
+            definite = [
+                f"strict_support({encoding.literal_ids[literal.key()]})" for literal in rule.body
+            ]
+            definite.extend(
+                f"not holds({encoding.literal_ids[literal.key()]})" for literal in rule.unless
+            )
+            tail = " :- " + ", ".join(definite) if definite else ""
+            lines.append(f"strict_support({encoding.literal_ids[rule.head.key()]}){tail}.")
+            if rule.body:
+                head = encoding.literal_ids[rule.head.key()]
+                for premise in sorted(
+                    {encoding.literal_ids[literal.key()] for literal in rule.body}
+                ):
+                    lines.append(
+                        f"argument(R,{head}) :- candidate_applicable(R,{index}), argument(R,{premise})."
+                    )
+                    lines.append(
+                        f"support(R,{head}) :- kind(R,defeasible), applied({index}), support(R,{premise})."
+                    )
+    lines.extend(_candidate_closure(encoding))
     for higher, lower in sorted(
         {
             (encoding.rule_ids[priority.higher], encoding.rule_ids[priority.lower])
@@ -150,22 +236,29 @@ def _compile(encoding: _Encoding) -> str:
             "#defined applicable/1.",
             "superior(R,S) :- higher(R,S).",
             "superior(R,T) :- superior(R,S), higher(S,T).",
-            "conflict(R,S) :- head(R,L), head(S,C), opposite(L,C), R != S.",
             "holds(L) :- fact(_,L).",
             "strict_support(L) :- fact(_,L).",
-            "strict_support(L) :- kind(R,strict), applicable(R), head(R,L).",
             "applied(R) :- kind(R,strict), applicable(R).",
             "applied(R) :- kind(R,defeasible), applicable(R), not defeated(R).",
             "applied(R) :- kind(R,defeater), applicable(R), not defeated(R).",
             "holds(L) :- applied(R), head(R,L), kind(R,K), K != defeater.",
-            "defeated(R) :- kind(R,K), K != strict, applicable(R), head(R,L), opposite(L,C), strict_support(C).",
-            "defeated(R) :- kind(R,defeasible), applicable(R), applied(S), conflict(R,S), not superior(R,S).",
-            "defeated(R) :- kind(R,defeater), applicable(R), applied(S), conflict(R,S), superior(S,R).",
+            "argument(R,L) :- kind(R,K), K != strict, applicable(R), head(R,L).",
+            "support(R,L) :- kind(R,K), K != strict, applied(R), head(R,L).",
+            "strict_attack(R,L) :- argument(R,L), opposite(L,C), strict_support(C).",
+            "defeated(R) :- strict_attack(R,_).",
+            "attack(R,S,L) :- kind(R,defeasible), argument(R,L), support(S,C), opposite(L,C), R != S, not superior(R,S).",
+            "attack(R,S,L) :- kind(R,defeater), argument(R,L), support(S,C), opposite(L,C), superior(S,R).",
+            "defeated(R) :- attack(R,_,_).",
+            "self_attack(R,L) :- kind(R,defeasible), argument(R,L), argument(R,C), opposite(L,C).",
+            "defeated(R) :- self_attack(R,_).",
             ":- holds(L), holds(C), opposite(L,C).",
             "#show holds/1.",
             "#show applied/1.",
             "#show defeated/1.",
             "#show applicable/1.",
+            "#show attack/3.",
+            "#show strict_attack/2.",
+            "#show self_attack/2.",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -215,7 +308,7 @@ def _enumerate(program: str, max_models: int, deadline: float) -> dict[str, Any]
             process.close()
 
 
-def _model(encoding: _Encoding, raw: dict[str, list[int]]) -> StableModel:
+def _model(encoding: _Encoding, raw: dict[str, Any]) -> StableModel:
     literals = sorted(
         (encoding.literals[index] for index in raw["holds"]), key=lambda literal: literal.key()
     )
@@ -244,24 +337,13 @@ def _model(encoding: _Encoding, raw: dict[str, list[int]]) -> StableModel:
     )
 
 
-def _priority_closure(kb: KnowledgeBase) -> set[tuple[str, str]]:
-    graph: dict[str, set[str]] = {rule.id: set() for rule in kb.rules}
-    for priority in kb.priorities:
-        graph[priority.higher].add(priority.lower)
-    closure: set[tuple[str, str]] = set()
-    for higher in graph:
-        pending = list(graph[higher])
-        reached: set[str] = set()
-        while pending:
-            lower = pending.pop()
-            if lower not in reached:
-                reached.add(lower)
-                pending.extend(graph[lower])
-        closure.update((higher, lower) for lower in reached)
-    return closure
-
-
-def _proof(encoding: _Encoding, models: list[StableModel], status: str, digest: str) -> ProofGraph:
+def _proof(
+    encoding: _Encoding,
+    models: list[StableModel],
+    status: str,
+    digest: str,
+    witnesses: dict[str, dict[str, Any]],
+) -> ProofGraph:
     nodes: dict[str, ProofNode] = {}
     edges: set[tuple[str, str, str]] = set()
 
@@ -287,7 +369,7 @@ def _proof(encoding: _Encoding, models: list[StableModel], status: str, digest: 
         status,
         program_sha256=digest,
         status=status,
-        semantics_version=1,
+        semantics_version=2,
         enumeration_complete=status in {"unique", "multiple", "inconsistent"},
     )
     for literal in encoding.literals:
@@ -320,7 +402,6 @@ def _proof(encoding: _Encoding, models: list[StableModel], status: str, digest: 
         for citation in priority.citations:
             cite(citation, pid)
 
-    closure = _priority_closure(encoding.kb)
     rules = {rule.id: rule for rule in encoding.rules}
     for model in models:
         mid = node(f"model:{model.id}", "stable_model", model.id, **model.model_dump(mode="json"))
@@ -358,26 +439,23 @@ def _proof(encoding: _Encoding, models: list[StableModel], status: str, digest: 
             )
             edge(mid, did, "includes")
             edge(did, f"rule:{rule_id}", "defeats")
-            contrary = Literal(name=rule.head.name, negated=not rule.head.negated).key()
-            for fact in encoding.kb.facts:
-                if fact.literal.key() == contrary:
-                    edge(f"fact:{fact.id}", did, "strict_conflict")
-            for opponent_id in model.applied_rules:
-                opponent = rules[opponent_id]
-                if opponent.head.key() != contrary:
-                    continue
-                strict = opponent.kind == "strict"
-                blocks = (
-                    (opponent_id, rule_id) in closure
-                    if rule.kind == "defeater"
-                    else (rule_id, opponent_id) not in closure
-                )
-                if strict or blocks:
+            # Use the solver's actual defeat witnesses, including indirect conflicts.
+            raw = witnesses[model.id]
+            rule_index = encoding.rule_ids[rule_id]
+            for target, opponent, literal in raw.get("attack", []):
+                if target == rule_index:
                     edge(
-                        f"application:{model.id}:{opponent_id}",
+                        f"application:{model.id}:{encoding.rules[opponent].id}",
                         did,
-                        "strict_conflict" if strict else "opposing_rule",
+                        "opposing_rule",
                     )
+                    edge(literal_id(encoding.literals[literal]), did, "conflicting_consequence")
+            for target, literal in raw.get("strict_attack", []):
+                if target == rule_index:
+                    edge(literal_id(encoding.literals[literal ^ 1]), did, "strict_conflict")
+            for target, literal in raw.get("self_attack", []):
+                if target == rule_index:
+                    edge(literal_id(encoding.literals[literal]), did, "self_conflict")
     for fact in encoding.kb.facts:
         contrary = Literal(name=fact.literal.name, negated=not fact.literal.negated).key()
         for other in encoding.kb.facts:
@@ -418,6 +496,7 @@ def solve(kb: KnowledgeBase, *, max_models: int = 64, timeout_seconds: float = 5
     payload = _enumerate(program, max_models, deadline)
     diagnostics: list[str] = []
     models: list[StableModel] = []
+    witnesses: dict[str, dict[str, Any]] = {}
     complete = False
     if payload is None:
         status = "timeout"
@@ -427,9 +506,11 @@ def solve(kb: KnowledgeBase, *, max_models: int = 64, timeout_seconds: float = 5
     else:
         raw_models = payload["models"]
         complete = bool(payload["complete"]) and len(raw_models) <= max_models
-        models = sorted(
-            (_model(encoding, raw) for raw in raw_models[:max_models]), key=lambda model: model.id
-        )
+        for raw in raw_models[:max_models]:
+            model = _model(encoding, raw)
+            models.append(model)
+            witnesses[model.id] = raw
+        models.sort(key=lambda model: model.id)
         if not complete:
             status = "truncated"
             diagnostics.append(
@@ -454,6 +535,6 @@ def solve(kb: KnowledgeBase, *, max_models: int = 64, timeout_seconds: float = 5
         program_sha256=digest,
         skeptical=[by_key[key] for key in sorted(skeptical_keys)],
         credulous=[by_key[key] for key in sorted(credulous_keys)],
-        proof=_proof(encoding, models, status, digest),
+        proof=_proof(encoding, models, status, digest, witnesses),
         diagnostics=diagnostics,
     )

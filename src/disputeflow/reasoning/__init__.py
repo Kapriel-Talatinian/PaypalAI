@@ -1,5 +1,5 @@
 """Deterministic, bounded ASP reasoning over validated extracted knowledge."""
 
-from .solver import SolverError, compile_program, solve
+from .solver import SolverError, UnsupportedTheoryError, compile_program, solve
 
-__all__ = ["SolverError", "compile_program", "solve"]
+__all__ = ["SolverError", "UnsupportedTheoryError", "compile_program", "solve"]

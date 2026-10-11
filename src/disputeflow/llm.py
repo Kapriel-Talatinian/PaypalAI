@@ -134,7 +134,10 @@ exceptions; kind=defeater for a clause that prevents the opposite conclusion
 without establishing its own head. A defeater's head denotes the conclusion it
 protects, not the conclusion it blocks. Body literals must all hold. 'unless'
 literals express exceptions; they are not explicit negative facts. Priorities
-are an acyclic order of rule IDs: higher overrides lower for opposing heads.
+are an acyclic order of rule IDs: higher overrides lower for opposing arguments,
+including their strict continuations. Strict-rule exceptions must be stratified
+(no dependency cycle through an exception); defeasible premises never acquire
+unconditional support merely by passing through a strict rule.
 PayPal merchant actions are decision_accept_claim, decision_provide_evidence,
 decision_make_offer, decision_escalate, decision_send_message, decision_no_action.
 Do not invent merchant adjudication actions such as deny_claim or refund.
